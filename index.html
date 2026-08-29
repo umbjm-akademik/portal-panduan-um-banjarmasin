@@ -289,8 +289,109 @@
       }
     }
 
-    function openModule(moduleId) {
-      alert('Halaman video untuk modul ini akan dibuat pada langkah berikutnya.');
+    async function openModule(moduleId) {
+      app.innerHTML = `
+        <main class="container">
+          <section class="card">
+            <div class="brand"><h1>Memuat video...</h1></div>
+          </section>
+        </main>
+      `;
+    
+      try {
+        const result = await api('videos', {
+          token: sessionToken,
+          moduleId: moduleId
+        });
+    
+        renderModule(moduleId, result.videos || []);
+      } catch (error) {
+        alert(error.message);
+        renderDashboard();
+      }
+    }
+    
+    function renderModule(moduleId, videos) {
+      const daftarVideo = videos.length
+        ? videos.map((video, index) => {
+            const videoSebelumnyaSelesai = index === 0 || videos[index - 1].selesai;
+            const terbuka = videoSebelumnyaSelesai;
+    
+            if (!terbuka) {
+              return `
+                <article class="module">
+                  <h2>${index + 1}. ${escapeHtml(video.judul)}</h2>
+                  <p>Video ini akan terbuka setelah video sebelumnya diselesaikan.</p>
+                </article>
+              `;
+            }
+    
+            const status = video.selesai
+              ? '<p style="color:#006747;font-weight:bold;margin-top:12px;">✓ Video telah diselesaikan</p>'
+              : `
+                <button type="button"
+                  onclick="completeVideo('${escapeHtml(moduleId)}', '${escapeHtml(video.video_id)}')">
+                  Saya Sudah Menonton Video Ini
+                </button>
+              `;
+    
+            return `
+              <article class="module">
+                <h2>${index + 1}. ${escapeHtml(video.judul)}</h2>
+                <iframe
+                  src="${escapeHtml(toEmbedUrl(video.url_video))}"
+                  title="${escapeHtml(video.judul)}"
+                  style="width:100%; aspect-ratio:16/9; border:0; border-radius:10px; margin-top:14px;"
+                  allow="autoplay; fullscreen"
+                  allowfullscreen>
+                </iframe>
+                ${status}
+              </article>
+            `;
+          }).join('')
+        : '<p class="empty">Belum ada video pada modul ini.</p>';
+    
+      app.innerHTML = `
+        <main class="container">
+          <section class="card">
+            <div class="brand">
+              <h1>Materi Video</h1>
+              <p>Selesaikan video secara berurutan.</p>
+            </div>
+    
+            ${daftarVideo}
+    
+            <button class="logout" type="button" onclick="renderDashboard()">
+              Kembali ke Daftar Modul
+            </button>
+          </section>
+        </main>
+      `;
+    }
+    
+    async function completeVideo(moduleId, videoId) {
+      try {
+        await api('completeVideo', {
+          token: sessionToken,
+          moduleId: moduleId,
+          videoId: videoId
+        });
+    
+        openModule(moduleId);
+      } catch (error) {
+        alert(error.message);
+      }
+    }
+    
+    function toEmbedUrl(url) {
+      const value = String(url || '');
+    
+      const driveMatch = value.match(/\/d\/([^/]+)/) || value.match(/[?&]id=([^&]+)/);
+      if (value.includes('drive.google.com') && driveMatch) {
+        return `https://drive.google.com/file/d/${driveMatch[1]}/preview`;
+      }
+    
+      return value;
     }
 
     function logout() {
