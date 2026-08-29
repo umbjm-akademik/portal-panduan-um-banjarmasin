@@ -19,6 +19,19 @@
     let activeVideos = [];
     let watchTimers = [];
 
+    function showLoading(message) {
+      app.innerHTML = `
+        <main class="container">
+          <section class="card">
+            <div class="loading">
+              <div class="spinner"></div>
+              <span>${escapeHtml(message)}</span>
+            </div>
+          </section>
+        </main>
+      `;
+    }
+    
     function escapeHtml(value) {
       return String(value || '').replace(/[&<>"']/g, char => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
