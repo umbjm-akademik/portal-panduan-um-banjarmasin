@@ -315,6 +315,11 @@
     }
     
     function renderModule(moduleId, videos) {
+      activeModuleId = moduleId;
+      activeVideos = videos;
+    
+      watchTimers.forEach(timer => clearInterval(timer));
+      watchTimers = [];
       const daftarVideo = videos.length
         ? videos.map((video, index) => {
             const videoSebelumnyaSelesai = index === 0 || videos[index - 1].selesai;
@@ -330,13 +335,8 @@
             }
     
             const status = video.selesai
-            ? '<p style="color:#006747;font-weight:bold;margin-top:12px;">✓ Video dan kuis telah diselesaikan</p>'
-            : `
-              <button type="button"
-                onclick="openQuiz('${escapeHtml(moduleId)}', '${escapeHtml(video.video_id)}')">
-                Lanjut ke Kuis
-              </button>
-            `;
+              ? '<p style="color:#006747;font-weight:bold;margin-top:12px;">✓ Video dan kuis telah diselesaikan</p>'
+              : `<div id="watch-status-${escapeHtml(video.video_id)}"></div>`;
     
             return `
               <article class="module">
@@ -370,8 +370,111 @@
           </section>
         </main>
       `;
+      initializeWatchTimers();
     }
 
+    function watchKey(videoId) {
+      return `portalWatch_${currentUser.user_id}_${videoId}`;
+    }
+    
+    function getWatchState(videoId) {
+      return JSON.parse(localStorage.getItem(watchKey(videoId)) || '{"seconds":0,"running":false}');
+    }
+    
+    function saveWatchState(videoId, state) {
+      localStorage.setItem(watchKey(videoId), JSON.stringify(state));
+    }
+    
+    function formatTime(seconds) {
+      const minutes = Math.floor(seconds / 60);
+      const remainingSeconds = seconds % 60;
+      return `${minutes}:${String(remainingSeconds).padStart(2, '0')}`;
+    }
+    
+    function watchStatusHtml(video) {
+      const duration = Math.max(Number(video.durasi_detik || 0), 1);
+      const state = getWatchState(video.video_id);
+      const watched = Math.min(Number(state.seconds || 0), duration);
+      const remaining = Math.max(duration - watched, 0);
+    
+      if (remaining === 0) {
+        return `
+          <p style="color:#006747;font-weight:bold;margin-top:14px;">
+            ✓ Durasi video telah terpenuhi
+          </p>
+          <button type="button"
+            onclick="openQuiz('${escapeHtml(activeModuleId)}', '${escapeHtml(video.video_id)}')">
+            Lanjut ke Kuis
+          </button>
+        `;
+      }
+    
+      if (!state.running) {
+        return `
+          <p style="color:#64748b;margin-top:14px;">
+            Tonton video hingga waktu minimum terpenuhi: ${formatTime(duration)}.
+          </p>
+          <button type="button" onclick="startWatching('${escapeHtml(video.video_id)}')">
+            Mulai Menonton
+          </button>
+        `;
+      }
+    
+      return `
+        <p style="color:#006747;font-weight:bold;margin-top:14px;">
+          Sedang mencatat waktu menonton: ${formatTime(watched)} / ${formatTime(duration)}
+        </p>
+        <p style="color:#64748b;font-size:13px;">
+          Jangan pindah tab atau tutup halaman selama menonton.
+        </p>
+      `;
+    }
+    
+    function updateWatchStatus(video) {
+      const element = document.getElementById(`watch-status-${video.video_id}`);
+      if (element) element.innerHTML = watchStatusHtml(video);
+    }
+    
+    function startWatching(videoId) {
+      const state = getWatchState(videoId);
+      state.running = true;
+      saveWatchState(videoId, state);
+      renderModule(activeModuleId, activeVideos);
+    }
+    
+    function initializeWatchTimers() {
+      activeVideos
+        .filter(video => !video.selesai)
+        .forEach(video => {
+          updateWatchStatus(video);
+    
+          const state = getWatchState(video.video_id);
+          if (!state.running) return;
+    
+          const timer = setInterval(() => {
+            const current = getWatchState(video.video_id);
+    
+            if (!current.running || document.hidden) return;
+    
+            const duration = Math.max(Number(video.durasi_detik || 0), 1);
+            current.seconds = Math.min(Number(current.seconds || 0) + 1, duration);
+    
+            if (current.seconds >= duration) {
+              current.running = false;
+            }
+    
+            saveWatchState(video.video_id, current);
+            updateWatchStatus(video);
+    
+            if (!current.running) {
+              clearInterval(timer);
+            }
+          }, 1000);
+    
+          watchTimers.push(timer);
+        });
+    }
+    
     async function openQuiz(moduleId, videoId) {
       try {
         const result = await api('quiz', {
