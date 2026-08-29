@@ -327,13 +327,13 @@
             }
     
             const status = video.selesai
-              ? '<p style="color:#006747;font-weight:bold;margin-top:12px;">✓ Video telah diselesaikan</p>'
-              : `
-                <button type="button"
-                  onclick="completeVideo('${escapeHtml(moduleId)}', '${escapeHtml(video.video_id)}')">
-                  Saya Sudah Menonton Video Ini
-                </button>
-              `;
+            ? '<p style="color:#006747;font-weight:bold;margin-top:12px;">✓ Video dan kuis telah diselesaikan</p>'
+            : `
+              <button type="button"
+                onclick="openQuiz('${escapeHtml(moduleId)}', '${escapeHtml(video.video_id)}')">
+                Lanjut ke Kuis
+              </button>
+            `;
     
             return `
               <article class="module">
@@ -367,6 +367,122 @@
           </section>
         </main>
       `;
+    }
+
+    async function openQuiz(moduleId, videoId) {
+      try {
+        const result = await api('quiz', {
+          token: sessionToken,
+          moduleId: moduleId,
+          videoId: videoId
+        });
+    
+        const questions = result.questions || [];
+    
+        if (!questions.length) {
+          await completeVideo(moduleId, videoId);
+          return;
+        }
+    
+        renderQuiz(moduleId, videoId, questions);
+      } catch (error) {
+        alert(error.message);
+      }
+    }
+    
+    function renderQuiz(moduleId, videoId, questions) {
+      const questionHtml = questions.map((question, index) => `
+        <article class="module">
+          <h2>Soal ${index + 1}</h2>
+          <p style="font-weight:bold; color:#1c2d26;">
+            ${escapeHtml(question.pertanyaan)}
+          </p>
+    
+          ${['A', 'B', 'C', 'D'].map(option => `
+            <label style="font-weight:normal; display:flex; gap:10px; align-items:flex-start; margin:13px 0;">
+              <input type="radio" required
+                name="${escapeHtml(question.question_id)}"
+                value="${option}"
+                style="width:auto; margin-top:2px;">
+              <span>${option}. ${escapeHtml(question[`opsi_${option.toLowerCase()}`])}</span>
+            </label>
+          `).join('')}
+        </article>
+      `).join('');
+    
+      app.innerHTML = `
+        <main class="container">
+          <section class="card">
+            <div class="brand">
+              <h1>Kuis Video</h1>
+              <p>Semua jawaban harus benar untuk melanjutkan.</p>
+            </div>
+    
+            <form id="quizForm">
+              ${questionHtml}
+              <div id="quizResult" class="message"></div>
+              <button type="submit">Kirim Jawaban</button>
+              <button class="logout" type="button" onclick="openModule('${escapeHtml(moduleId)}')">
+                Kembali ke Video
+              </button>
+            </form>
+          </section>
+        </main>
+      `;
+    
+      document.getElementById('quizForm').addEventListener('submit', event => {
+        submitQuiz(event, moduleId, videoId, questions);
+      });
+    }
+    
+    async function submitQuiz(event, moduleId, videoId, questions) {
+      event.preventDefault();
+    
+      const form = event.currentTarget;
+      const button = form.querySelector('button[type="submit"]');
+      const resultBox = document.getElementById('quizResult');
+      const answers = Object.fromEntries(new FormData(form).entries());
+    
+      button.disabled = true;
+      button.textContent = 'Memeriksa jawaban...';
+    
+      try {
+        const result = await api('submitQuiz', {
+          token: sessionToken,
+          moduleId: moduleId,
+          videoId: videoId,
+          answers: JSON.stringify(answers)
+        });
+    
+        if (result.lulus) {
+          openModule(moduleId);
+          return;
+        }
+    
+        const salah = result.results
+          .filter(item => !item.benar)
+          .map(item => {
+            const question = questions.find(q => q.question_id === item.question_id);
+            const textJawaban = question[`opsi_${item.jawaban_benar.toLowerCase()}`];
+    
+            return `<li>Jawaban benar untuk soal ini: <b>${item.jawaban_benar}. ${escapeHtml(textJawaban)}</b></li>`;
+          }).join('');
+    
+        resultBox.className = 'message error';
+        resultBox.innerHTML = `
+          <b>Masih ada jawaban yang salah.</b>
+          <ul style="margin:8px 0 0; padding-left:20px;">${salah}</ul>
+          <p style="margin:10px 0 0;">Perbaiki jawaban Anda, lalu kirim kembali.</p>
+        `;
+    
+        button.disabled = false;
+        button.textContent = 'Kirim Jawaban';
+      } catch (error) {
+        resultBox.className = 'message error';
+        resultBox.textContent = error.message;
+        button.disabled = false;
+        button.textContent = 'Kirim Jawaban';
+      }
     }
     
     async function completeVideo(moduleId, videoId) {
