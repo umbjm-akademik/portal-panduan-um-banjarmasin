@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Portal Panduan UM Banjarmasin</title>
+  <script src="config.js"></script>
+
+  <style>
+    :root {
+      --primary: #006747;
+      --primary-dark: #004e36;
+      --bg: #f1f7f4;
+      --text: #1c2d26;
+      --muted: #64748b;
+      --danger: #b91c1c;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, sans-serif;
+    }
+
+    .container {
+      width: min(100% - 32px, 680px);
+      margin: 0 auto;
+      padding: 28px 0;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 18px;
+      box-shadow: 0 10px 30px rgba(21, 62, 45, .12);
+      padding: 26px 20px;
+    }
+
+    .brand { text-align: center; margin-bottom: 26px; }
+
+    .brand h1 {
+      color: var(--primary);
+      font-size: 23px;
+      margin: 0 0 8px;
+    }
+
+    .brand p {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+      margin: 0;
+    }
+
+    label {
+      display: block;
+      font-size: 14px;
+      font-weight: 700;
+      margin: 18px 0 7px;
+    }
+
+    input {
+      width: 100%;
+      border: 1px solid #cbd5e1;
+      border-radius: 9px;
+      font-size: 16px;
+      padding: 13px;
+    }
+
+    input:focus {
+      border-color: var(--primary);
+      outline: 2px solid #b9e2cf;
+    }
+
+    button {
+      width: 100%;
+      border: 0;
+      border-radius: 9px;
+      background: var(--primary);
+      color: #fff;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 700;
+      margin-top: 22px;
+      padding: 14px;
+    }
+
+    button:hover { background: var(--primary-dark); }
+    button:disabled { cursor: wait; opacity: .7; }
+
+    .message {
+      border-radius: 8px;
+      display: none;
+      font-size: 14px;
+      margin-top: 16px;
+      padding: 11px 12px;
+    }
+
+    .message.error {
+      background: #fee2e2;
+      color: var(--danger);
+      display: block;
+    }
+
+    .module {
+      border: 1px solid #dbe7e1;
+      border-radius: 12px;
+      margin-top: 14px;
+      padding: 16px;
+    }
+
+    .module h2 {
+      color: var(--primary);
+      font-size: 17px;
+      margin: 0 0 8px;
+    }
+
+    .module p {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+      margin: 0;
+    }
+
+    .module button { margin-top: 16px; }
+
+    .logout {
+      background: #64748b;
+      margin-top: 24px;
+    }
+
+    .empty {
+      color: var(--muted);
+      line-height: 1.5;
+      text-align: center;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="app"></div>
+
+  <script>
+    const app = document.getElementById('app');
+    let currentUser = JSON.parse(localStorage.getItem('portalUser') || 'null');
+    let sessionToken = localStorage.getItem('portalToken');
+
+    function escapeHtml(value) {
+      return String(value || '').replace(/[&<>"']/g, char => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+      })[char]);
+    }
+
+    function api(action, params = {}) {
+      return new Promise((resolve, reject) => {
+        if (!window.PORTAL_CONFIG || !PORTAL_CONFIG.API_URL) {
+          reject(new Error('Alamat API belum diatur pada config.js.'));
+          return;
+        }
+
+        const callback = `portalCallback_${Date.now()}_${Math.random()
+          .toString(36).slice(2)}`;
+
+        const query = new URLSearchParams({
+          action,
+          callback,
+          ...params
+        });
+
+        const script = document.createElement('script');
+
+        window[callback] = response => {
+          delete window[callback];
+          script.remove();
+
+          if (response.success) resolve(response.data);
+          else reject(new Error(response.message || 'Permintaan gagal.'));
+        };
+
+        script.onerror = () => {
+          delete window[callback];
+          script.remove();
+          reject(new Error('Koneksi ke server gagal.'));
+        };
+
+        script.src = `${PORTAL_CONFIG.API_URL}?${query.toString()}`;
+        document.head.appendChild(script);
+      });
+    }
+
+    function renderLogin() {
+      app.innerHTML = `
+        <main class="container">
+          <section class="card">
+            <div class="brand">
+              <h1>Portal Panduan UM Banjarmasin</h1>
+              <p>Masuk untuk mengakses panduan dan menyelesaikan proses akademik Anda.</p>
+            </div>
+
+            <form id="loginForm">
+              <label for="loginId">NIM atau Username</label>
+              <input id="loginId" type="text" required autocomplete="username">
+
+              <label for="tanggalLahir">Tanggal Lahir</label>
+              <input id="tanggalLahir" type="date" required>
+
+              <button id="loginButton" type="submit">Masuk</button>
+              <div id="message" class="message" role="alert"></div>
+            </form>
+          </section>
+        </main>
+      `;
+
+      document.getElementById('loginForm').addEventListener('submit', async event => {
+        event.preventDefault();
+
+        const button = document.getElementById('loginButton');
+        const message = document.getElementById('message');
+        button.disabled = true;
+        button.textContent = 'Memeriksa data...';
+        message.className = 'message';
+
+        try {
+          const result = await api('login', {
+            loginId: document.getElementById('loginId').value.trim(),
+            tanggalLahir: document.getElementById('tanggalLahir').value
+          });
+
+          currentUser = result.user;
+          sessionToken = result.token;
+          localStorage.setItem('portalUser', JSON.stringify(currentUser));
+          localStorage.setItem('portalToken', sessionToken);
+
+          renderDashboard();
+        } catch (error) {
+          message.className = 'message error';
+          message.textContent = error.message;
+          button.disabled = false;
+          button.textContent = 'Masuk';
+        }
+      });
+    }
+
+    async function renderDashboard() {
+      app.innerHTML = `
+        <main class="container">
+          <section class="card">
+            <div class="brand">
+              <h1>Memuat portal...</h1>
+            </div>
+          </section>
+        </main>
+      `;
+
+      try {
+        const result = await api('modules', { token: sessionToken });
+        const modules = result.modules || [];
+
+        const daftarModul = modules.length
+          ? modules.map(module => `
+              <article class="module">
+                <h2>${escapeHtml(module.nama_modul)}</h2>
+                <p>${escapeHtml(module.deskripsi)}</p>
+                <button type="button" onclick="openModule('${escapeHtml(module.module_id)}')">
+                  Buka Modul
+                </button>
+              </article>
+            `).join('')
+          : '<p class="empty">Belum ada modul yang tersedia untuk akun Anda.</p>';
+
+        app.innerHTML = `
+          <main class="container">
+            <section class="card">
+              <div class="brand">
+                <h1>Halo, ${escapeHtml(currentUser.nama)}</h1>
+                <p>${escapeHtml(currentUser.prodi || 'Mahasiswa')} · Pilih panduan yang perlu Anda selesaikan.</p>
+              </div>
+
+              ${daftarModul}
+
+              <button class="logout" type="button" onclick="logout()">Keluar</button>
+            </section>
+          </main>
+        `;
+      } catch (error) {
+        logout();
+      }
+    }
+
+    function openModule(moduleId) {
+      alert('Halaman video untuk modul ini akan dibuat pada langkah berikutnya.');
+    }
+
+    function logout() {
+      localStorage.removeItem('portalUser');
+      localStorage.removeItem('portalToken');
+      currentUser = null;
+      sessionToken = null;
+      renderLogin();
+    }
+
+    if (currentUser && sessionToken) {
+      renderDashboard();
+    } else {
+      renderLogin();
+    }
+  </script>
+</body>
+</html>
