@@ -146,6 +146,9 @@
     const app = document.getElementById('app');
     let currentUser = JSON.parse(localStorage.getItem('portalUser') || 'null');
     let sessionToken = localStorage.getItem('portalToken');
+    let activeModuleId = null;
+    let activeVideos = [];
+    let watchTimers = [];
 
     function escapeHtml(value) {
       return String(value || '').replace(/[&<>"']/g, char => ({
