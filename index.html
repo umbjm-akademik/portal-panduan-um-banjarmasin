@@ -363,18 +363,20 @@
                     allowfullscreen>
                   </iframe>
                 
-                  <div
-                    id="video-lock-${escapeHtml(video.video_id)}"
-                    class="video-lock"
-                    onclick="startWatching('${escapeHtml(video.video_id)}')">
-                
-                    <div class="video-lock-content">
-                      <div class="play-icon">▶</div>
-                      <strong>Mulai Menonton</strong>
-                      <span>Klik untuk memulai video</span>
+                  ${!video.selesai ? `
+                    <div
+                      id="video-lock-${escapeHtml(video.video_id)}"
+                      class="video-lock"
+                      onclick="startWatching('${escapeHtml(video.video_id)}')">
+                  
+                      <div class="video-lock-content">
+                        <div class="play-icon">▶</div>
+                        <strong>Mulai Menonton</strong>
+                        <span>Klik untuk memulai video</span>
+                      </div>
+                  
                     </div>
-                
-                  </div>
+                  ` : ''}
                 
                 </div>
 
