@@ -498,26 +498,24 @@
       const state = getWatchState(videoId);
     
       state.running = true;
-    
       saveWatchState(videoId, state);
     
-      // Jalankan video secara otomatis
-      const video = activeVideos.find(
-        item => String(item.video_id) === String(videoId)
+      const iframe = document.getElementById(
+        `video-frame-${videoId}`
       );
     
-      if (video) {
-        const iframe = document.getElementById(
-          `video-frame-${video.video_id}`
-        );
+      const lock = document.getElementById(
+        `video-lock-${videoId}`
+      );
     
-        if (iframe) {
-          const url = toEmbedUrl(video.url_video);
+      if (iframe) {
+        const baseUrl = iframe.src.split('?')[0];
     
-          iframe.src = url.includes('?')
-            ? `${url}&autoplay=1`
-            : `${url}?autoplay=1`;
-        }
+        iframe.src = `${baseUrl}?autoplay=1`;
+      }
+    
+      if (lock) {
+        lock.style.display = 'none';
       }
     
       initializeWatchTimers();
