@@ -140,17 +140,46 @@
         const modules = result.modules || [];
 
         const daftarModul = modules.length
-          ? modules.map(module => `
-              <article class="module">
-                <h2>${escapeHtml(module.nama_modul)}</h2>
-                <p>${escapeHtml(module.deskripsi)}</p>
-                <button type="button" onclick="openModule('${escapeHtml(module.module_id)}')">
-                  Buka Modul
-                </button>
-              </article>
-            `).join('')
+          ? modules.map(module => {
+              const progress = `${module.video_selesai || 0} dari ${module.total_video || 0} video selesai`;
+        
+              let action;
+        
+              if (module.deklarasi_disetujui) {
+                action = `
+                  <p style="color:#006747;font-weight:bold;margin-top:16px;">
+                    ✓ Modul telah difinalisasi
+                  </p>
+                `;
+              } else if (module.selesai) {
+                action = `
+                  <button type="button"
+                    onclick="showDeclaration('${escapeHtml(module.module_id)}')">
+                    Finalisasi Modul
+                  </button>
+                `;
+              } else {
+                action = `
+                  <button type="button"
+                    onclick="openModule('${escapeHtml(module.module_id)}')">
+                    Buka Modul
+                  </button>
+                `;
+              }
+        
+              return `
+                <article class="module">
+                  <h2>${escapeHtml(module.nama_modul)}</h2>
+                  <p>${escapeHtml(module.deskripsi)}</p>
+                  <p style="font-size:13px;color:#64748b;margin:12px 0 0;">
+                    Progress: ${progress}
+                  </p>
+                  ${action}
+                </article>
+              `;
+            }).join('')
           : '<p class="empty">Belum ada modul yang tersedia untuk akun Anda.</p>';
-
+        
         app.innerHTML = `
           <main class="container">
             <section class="card">
