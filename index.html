@@ -204,7 +204,9 @@
                   class="portal-logo"
                 >
                 <h1>Halo, ${escapeHtml(currentUser.nama)}</h1>
-                <p>${escapeHtml(currentUser.prodi || 'Mahasiswa')} · Pilih panduan yang perlu Anda selesaikan.</p>
+                <p>Nomor Induk Mahasiswa (NIM): ${escapeHtml(currentUser.nim || 'Mahasiswa')}</p>
+                <p>Program Studi: ${escapeHtml(currentUser.prodi || 'Mahasiswa')}</p>
+                <p>Pilih panduan yang perlu Anda selesaikan.</p>
               </div>
 
               ${daftarModul}
