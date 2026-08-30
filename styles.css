@@ -220,25 +220,41 @@ button:disabled { cursor: wait; opacity: .7; }
 }
 
 .video-completed {
-  opacity: .62;
-  filter: saturate(.7);
-  transition: opacity .2s ease, filter .2s ease;
+  opacity: .55;
+  background: #f1f5f3;
+  border-color: #cbd5d1;
+  position: relative;
 }
 
 .video-completed:hover {
-  opacity: .9;
-  filter: saturate(1);
+  opacity: .85;
+}
+
+.video-completed h2 {
+  color: #64748b;
+}
+
+.video-completed .video-wrapper {
+  opacity: .72;
+  filter: grayscale(.25);
 }
 
 .video-completed-status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
   color: var(--primary);
-  font-weight: 700;
+  background: #e8f4ee;
+  border-radius: 8px;
   font-size: 14px;
+  font-weight: 700;
   margin-top: 14px;
+  padding: 10px 12px;
 }
 
 .watch-again-button {
   background: #64748b;
+  margin-top: 10px !important;
 }
 
 .watch-again-button:hover {
