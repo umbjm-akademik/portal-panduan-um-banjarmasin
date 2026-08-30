@@ -19,6 +19,16 @@
     let activeVideos = [];
     let watchTimers = [];
 
+    function escapeHtml(value) {
+      return String(value || '').replace(/[&<>"']/g, char => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+      })[char]);
+    }
+
     function showLoading(message) {
       app.innerHTML = `
         <main class="container">
@@ -30,12 +40,6 @@
           </section>
         </main>
       `;
-    }
-    
-    function escapeHtml(value) {
-      return String(value || '').replace(/[&<>"']/g, char => ({
-        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
-      })[char]);
     }
 
     function api(action, params = {}) {
@@ -129,15 +133,7 @@
     }
 
     async function renderDashboard() {
-      app.innerHTML = `
-        <main class="container">
-          <section class="card">
-            <div class="brand">
-              <h1>Memuat portal...</h1>
-            </div>
-          </section>
-        </main>
-      `;
+      showLoading('Memuat portal...');
 
       try {
         const result = await api('modules', { token: sessionToken });
@@ -175,38 +171,32 @@
     }
 
     async function openModule(moduleId) {
-      app.innerHTML = `
-        <main class="container">
-          <section class="card">
-            <div class="brand"><h1>Memuat video...</h1></div>
-          </section>
-        </main>
-      `;
-    
+      showLoading('Memuat video...');
+
       try {
         const result = await api('videos', {
           token: sessionToken,
           moduleId: moduleId
         });
-    
+
         renderModule(moduleId, result.videos || []);
       } catch (error) {
         alert(error.message);
         renderDashboard();
       }
     }
-    
+
     function renderModule(moduleId, videos) {
       activeModuleId = moduleId;
       activeVideos = videos;
-    
+
       watchTimers.forEach(timer => clearInterval(timer));
       watchTimers = [];
+
       const daftarVideo = videos.length
         ? videos.map((video, index) => {
-            const videoSebelumnyaSelesai = index === 0 || videos[index - 1].selesai;
-            const terbuka = videoSebelumnyaSelesai;
-    
+            const terbuka = index === 0 || videos[index - 1].selesai;
+
             if (!terbuka) {
               return `
                 <article class="module">
@@ -215,14 +205,15 @@
                 </article>
               `;
             }
-    
+
             const status = video.selesai
               ? '<p style="color:#006747;font-weight:bold;margin-top:12px;">✓ Video dan kuis telah diselesaikan</p>'
               : `<div id="watch-status-${escapeHtml(video.video_id)}"></div>`;
-    
+
             return `
               <article class="module">
                 <h2>${index + 1}. ${escapeHtml(video.judul)}</h2>
+
                 <iframe
                   src="${escapeHtml(toEmbedUrl(video.url_video))}"
                   title="${escapeHtml(video.judul)}"
@@ -230,12 +221,13 @@
                   allow="autoplay; fullscreen"
                   allowfullscreen>
                 </iframe>
+
                 ${status}
               </article>
             `;
           }).join('')
         : '<p class="empty">Belum ada video pada modul ini.</p>';
-    
+
       app.innerHTML = `
         <main class="container">
           <section class="card">
@@ -243,42 +235,47 @@
               <h1>Materi Video</h1>
               <p>Selesaikan video secara berurutan.</p>
             </div>
-    
+
             ${daftarVideo}
-    
+
             <button class="logout" type="button" onclick="renderDashboard()">
               Kembali ke Daftar Modul
             </button>
           </section>
         </main>
       `;
+
       initializeWatchTimers();
     }
 
     function watchKey(videoId) {
       return `portalWatch_${currentUser.user_id}_${videoId}`;
     }
-    
+
     function getWatchState(videoId) {
-      return JSON.parse(localStorage.getItem(watchKey(videoId)) || '{"seconds":0,"running":false}');
+      return JSON.parse(
+        localStorage.getItem(watchKey(videoId)) ||
+        '{"seconds":0,"running":false}'
+      );
     }
-    
+
     function saveWatchState(videoId, state) {
       localStorage.setItem(watchKey(videoId), JSON.stringify(state));
     }
-    
+
     function formatTime(seconds) {
       const minutes = Math.floor(seconds / 60);
       const remainingSeconds = seconds % 60;
+
       return `${minutes}:${String(remainingSeconds).padStart(2, '0')}`;
     }
-    
+
     function watchStatusHtml(video) {
       const duration = Math.max(Number(video.durasi_detik || 0), 1);
       const state = getWatchState(video.video_id);
       const watched = Math.min(Number(state.seconds || 0), duration);
       const remaining = Math.max(duration - watched, 0);
-    
+
       if (remaining === 0) {
         return `
           <p style="color:#006747;font-weight:bold;margin-top:14px;">
@@ -290,7 +287,7 @@
           </button>
         `;
       }
-    
+
       if (!state.running) {
         return `
           <p style="color:#64748b;margin-top:14px;">
@@ -301,7 +298,7 @@
           </button>
         `;
       }
-    
+
       return `
         <p style="color:#006747;font-weight:bold;margin-top:14px;">
           Sedang mencatat waktu menonton: ${formatTime(watched)} / ${formatTime(duration)}
@@ -311,73 +308,83 @@
         </p>
       `;
     }
-    
+
     function updateWatchStatus(video) {
       const element = document.getElementById(`watch-status-${video.video_id}`);
-      if (element) element.innerHTML = watchStatusHtml(video);
+
+      if (element) {
+        element.innerHTML = watchStatusHtml(video);
+      }
     }
-    
+
     function startWatching(videoId) {
       const state = getWatchState(videoId);
       state.running = true;
       saveWatchState(videoId, state);
-      renderModule(activeModuleId, activeVideos);
+
+      initializeWatchTimers();
     }
-    
+
     function initializeWatchTimers() {
+      watchTimers.forEach(timer => clearInterval(timer));
+      watchTimers = [];
+
       activeVideos
         .filter(video => !video.selesai)
         .forEach(video => {
           updateWatchStatus(video);
-    
+
           const state = getWatchState(video.video_id);
           if (!state.running) return;
-    
+
           const timer = setInterval(() => {
             const current = getWatchState(video.video_id);
-    
+
             if (!current.running || document.hidden) return;
-    
+
             const duration = Math.max(Number(video.durasi_detik || 0), 1);
             current.seconds = Math.min(Number(current.seconds || 0) + 1, duration);
-    
+
             if (current.seconds >= duration) {
               current.running = false;
             }
-    
+
             saveWatchState(video.video_id, current);
             updateWatchStatus(video);
-    
+
             if (!current.running) {
               clearInterval(timer);
             }
           }, 1000);
-    
+
           watchTimers.push(timer);
         });
     }
-    
+
     async function openQuiz(moduleId, videoId) {
+      showLoading('Menyiapkan kuis...');
+
       try {
         const result = await api('quiz', {
           token: sessionToken,
           moduleId: moduleId,
           videoId: videoId
         });
-    
+
         const questions = result.questions || [];
-    
+
         if (!questions.length) {
           await completeVideo(moduleId, videoId);
           return;
         }
-    
+
         renderQuiz(moduleId, videoId, questions);
       } catch (error) {
         alert(error.message);
+        openModule(moduleId);
       }
     }
-    
+
     function renderQuiz(moduleId, videoId, questions) {
       const questionHtml = questions.map((question, index) => `
         <article class="module">
@@ -385,7 +392,7 @@
           <p style="font-weight:bold; color:#1c2d26;">
             ${escapeHtml(question.pertanyaan)}
           </p>
-    
+
           ${['A', 'B', 'C', 'D'].map(option => `
             <label style="font-weight:normal; display:flex; gap:10px; align-items:flex-start; margin:13px 0;">
               <input type="radio" required
@@ -397,7 +404,7 @@
           `).join('')}
         </article>
       `).join('');
-    
+
       app.innerHTML = `
         <main class="container">
           <section class="card">
@@ -405,11 +412,14 @@
               <h1>Kuis Video</h1>
               <p>Semua jawaban harus benar untuk melanjutkan.</p>
             </div>
-    
+
             <form id="quizForm">
               ${questionHtml}
+
               <div id="quizResult" class="message"></div>
+
               <button type="submit">Kirim Jawaban</button>
+
               <button class="logout" type="button" onclick="openModule('${escapeHtml(moduleId)}')">
                 Kembali ke Video
               </button>
@@ -417,23 +427,23 @@
           </section>
         </main>
       `;
-    
+
       document.getElementById('quizForm').addEventListener('submit', event => {
         submitQuiz(event, moduleId, videoId, questions);
       });
     }
-    
+
     async function submitQuiz(event, moduleId, videoId, questions) {
       event.preventDefault();
-    
+
       const form = event.currentTarget;
       const button = form.querySelector('button[type="submit"]');
       const resultBox = document.getElementById('quizResult');
       const answers = Object.fromEntries(new FormData(form).entries());
-    
+
       button.disabled = true;
       button.textContent = 'Memeriksa jawaban...';
-    
+
       try {
         const result = await api('submitQuiz', {
           token: sessionToken,
@@ -441,28 +451,59 @@
           videoId: videoId,
           answers: JSON.stringify(answers)
         });
-    
+
         if (result.lulus) {
           openModule(moduleId);
           return;
         }
-    
+
         const salah = result.results
           .filter(item => !item.benar)
           .map(item => {
-            const question = questions.find(q => q.question_id === item.question_id);
-            const textJawaban = question[`opsi_${item.jawaban_benar.toLowerCase()}`];
-    
-            return `<li>Jawaban benar untuk soal ini: <b>${item.jawaban_benar}. ${escapeHtml(textJawaban)}</b></li>`;
+            const question = questions.find(
+              question => question.question_id === item.question_id
+            );
+
+            const textJawabanBenar = question[
+              `opsi_${item.jawaban_benar.toLowerCase()}`
+            ];
+
+            const nomorSoal = questions.findIndex(
+              question => question.question_id === item.question_id
+            ) + 1;
+
+            const jawabanMahasiswa = String(
+              answers[item.question_id] || '-'
+            ).toUpperCase();
+
+            const textJawabanMahasiswa = question[
+              `opsi_${jawabanMahasiswa.toLowerCase()}`
+            ] || '-';
+
+            return `
+              <li style="margin-bottom:10px;">
+                <b>Soal ${nomorSoal}</b><br>
+                Jawaban Anda:
+                <b style="color:#b91c1c;">
+                  ${escapeHtml(jawabanMahasiswa)}.
+                  ${escapeHtml(textJawabanMahasiswa)}
+                </b><br>
+                Jawaban benar:
+                <b style="color:#006747;">
+                  ${item.jawaban_benar}.
+                  ${escapeHtml(textJawabanBenar)}
+                </b>
+              </li>
+            `;
           }).join('');
-    
+
         resultBox.className = 'message error';
         resultBox.innerHTML = `
           <b>Masih ada jawaban yang salah.</b>
           <ul style="margin:8px 0 0; padding-left:20px;">${salah}</ul>
           <p style="margin:10px 0 0;">Perbaiki jawaban Anda, lalu kirim kembali.</p>
         `;
-    
+
         button.disabled = false;
         button.textContent = 'Kirim Jawaban';
       } catch (error) {
@@ -472,7 +513,7 @@
         button.textContent = 'Kirim Jawaban';
       }
     }
-    
+
     async function completeVideo(moduleId, videoId) {
       try {
         await api('completeVideo', {
@@ -480,29 +521,31 @@
           moduleId: moduleId,
           videoId: videoId
         });
-    
+
         openModule(moduleId);
       } catch (error) {
         alert(error.message);
       }
     }
-    
+
     function toEmbedUrl(url) {
       const value = String(url || '');
-    
       const driveMatch = value.match(/\/d\/([^/]+)/) || value.match(/[?&]id=([^&]+)/);
+
       if (value.includes('drive.google.com') && driveMatch) {
         return `https://drive.google.com/file/d/${driveMatch[1]}/preview`;
       }
-    
+
       return value;
     }
 
     function logout() {
       localStorage.removeItem('portalUser');
       localStorage.removeItem('portalToken');
+
       currentUser = null;
       sessionToken = null;
+
       renderLogin();
     }
 
