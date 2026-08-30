@@ -162,11 +162,21 @@ button:disabled { cursor: wait; opacity: .7; }
 .video-wrapper {
   position: relative;
   width: 100%;
-  aspect-ratio: 16 / 9;
   margin-top: 14px;
   overflow: hidden;
   border-radius: 10px;
   background: #000;
+}
+
+.video-horizontal {
+  aspect-ratio: 16 / 9;
+}
+
+.video-vertical {
+  width: min(100%, 390px);
+  aspect-ratio: 9 / 16;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .video-frame {
