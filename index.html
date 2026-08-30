@@ -312,7 +312,7 @@
 
             if (!terbuka) {
               return `
-                <article class="module">
+                <article class="module ${video.selesai ? 'video-completed' : ''}">
                   <h2>${index + 1}. ${escapeHtml(video.judul)}</h2>
                   <p>Video ini akan terbuka setelah video sebelumnya diselesaikan.</p>
                 </article>
@@ -320,8 +320,21 @@
             }
 
             const status = video.selesai
-              ? '<p style="color:#006747;font-weight:bold;margin-top:12px;">✓ Video dan kuis telah diselesaikan</p>'
-              : `<div id="watch-status-${escapeHtml(video.video_id)}"></div>`;
+              ? `
+                <div class="video-completed-status">
+                  ✓ Video dan kuis telah diselesaikan
+                </div>
+            
+                <button
+                  type="button"
+                  class="watch-again-button"
+                  onclick="watchAgain('${escapeHtml(video.video_id)}')">
+                  Tonton Kembali
+                </button>
+              `
+              : `
+                <div id="watch-status-${escapeHtml(video.video_id)}"></div>
+              `;
 
             return `
               <article class="module">
