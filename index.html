@@ -293,7 +293,13 @@
     function renderModule(moduleId, videos) {
       activeModuleId = moduleId;
       activeVideos = videos;
-
+      // Server/Spreadsheet menjadi sumber status resmi.
+      // Progress lokal yang tersisa hanya dipakai untuk sesi aktif.
+      videos.forEach(video => {
+        if (video.selesai) {
+          delete watchStates[video.video_id];
+        }
+      });
       watchTimers.forEach(timer => clearInterval(timer));
       watchTimers = [];
 
@@ -376,6 +382,19 @@
     const watchStates = {};
 
     function getWatchState(videoId) {
+      const video = activeVideos.find(
+        item => String(item.video_id) === String(videoId)
+      );
+    
+      // Jika video sudah selesai menurut server,
+      // tidak perlu menyimpan timer lokal.
+      if (video && video.selesai) {
+        return {
+          seconds: Number(video.durasi_detik || 0),
+          running: false
+        };
+      }
+    
       if (!watchStates[videoId]) {
         watchStates[videoId] = {
           seconds: 0,
@@ -385,9 +404,12 @@
     
       return watchStates[videoId];
     }
-    
+
     function saveWatchState(videoId, state) {
-      watchStates[videoId] = state;
+      watchStates[videoId] = {
+        seconds: Number(state.seconds || 0),
+        running: Boolean(state.running)
+      };
     }
     
     function formatTime(seconds) {
