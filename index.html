@@ -121,9 +121,14 @@
           sessionToken = result.token;
           localStorage.setItem('portalUser', JSON.stringify(currentUser));
           localStorage.setItem('portalToken', sessionToken);
-
-          renderDashboard();
-        } catch (error) {
+                   
+          if (String(currentUser.role).toLowerCase() === 'admin') {
+            renderAdminDashboard();
+          } else {
+            renderDashboard();
+          }
+        } 
+        catch (error) {
           message.className = 'message error';
           message.textContent = error.message;
           button.disabled = false;
@@ -199,6 +204,62 @@
       }
     }
 
+    async function renderAdminDashboard() {
+      showLoading('Memuat dashboard admin...');
+    
+      try {
+        const result = await api('adminDashboard', {
+          token: sessionToken
+        });
+    
+        const mahasiswa = result.mahasiswa || [];
+    
+        const daftarMahasiswa = mahasiswa.length
+          ? mahasiswa.map(user => `
+              <article class="module">
+                <h2>${escapeHtml(user.nama)}</h2>
+                <p>${escapeHtml(user.nim)} · ${escapeHtml(user.prodi)}</p>
+                <p style="font-size:13px;color:#64748b;margin:12px 0 0;">
+                  Modul selesai: ${user.modul_selesai} dari ${user.total_modul}<br>
+                  Finalisasi: ${user.finalisasi} dari ${user.total_modul}
+                </p>
+              </article>
+            `).join('')
+          : '<p class="empty">Belum ada mahasiswa aktif.</p>';
+    
+        app.innerHTML = `
+          <main class="container">
+            <section class="card">
+              <div class="brand">
+                <h1>Dashboard Admin</h1>
+                <p>Ringkasan penyelesaian panduan mahasiswa.</p>
+              </div>
+    
+              <article class="module">
+                <h2>Total Mahasiswa</h2>
+                <p style="font-size:30px;font-weight:bold;color:#006747;margin:8px 0;">
+                  ${result.total_mahasiswa || 0}
+                </p>
+              </article>
+    
+              ${daftarMahasiswa}
+    
+              <button type="button" onclick="renderAdminDashboard()">
+                Muat Ulang Data
+              </button>
+    
+              <button class="logout" type="button" onclick="logout()">
+                Keluar
+              </button>
+            </section>
+          </main>
+        `;
+      } catch (error) {
+        alert(error.message);
+        logout();
+      }
+    }
+    
     async function openModule(moduleId) {
       showLoading('Memuat video...');
 
