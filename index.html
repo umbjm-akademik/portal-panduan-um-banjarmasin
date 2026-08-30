@@ -568,6 +568,73 @@
       return value;
     }
 
+    function showDeclaration(moduleId) {
+      app.innerHTML = `
+        <main class="container">
+          <section class="card">
+            <div class="brand">
+              <h1>Finalisasi Modul</h1>
+              <p>Pastikan Anda sudah memahami seluruh panduan pada modul ini.</p>
+            </div>
+    
+            <form id="declarationForm">
+              <article class="module">
+                <p style="line-height:1.6;">
+                  Saya menyatakan telah mengikuti seluruh panduan dan memahami
+                  informasi pada modul ini.
+                </p>
+    
+                <label style="font-weight:normal;display:flex;gap:10px;align-items:flex-start;">
+                  <input id="acceptDeclaration" type="checkbox"
+                    style="width:auto;margin-top:3px;">
+                  <span>Saya setuju dengan pernyataan di atas.</span>
+                </label>
+              </article>
+    
+              <button type="submit">Setujui dan Finalisasi</button>
+              <button class="logout" type="button" onclick="renderDashboard()">
+                Kembali
+              </button>
+    
+              <div id="declarationMessage" class="message"></div>
+            </form>
+          </section>
+        </main>
+      `;
+    
+      document.getElementById('declarationForm').addEventListener('submit', event => {
+        submitDeclaration(event, moduleId);
+      });
+    }
+    
+    async function submitDeclaration(event, moduleId) {
+      event.preventDefault();
+    
+      const accepted = document.getElementById('acceptDeclaration').checked;
+      const message = document.getElementById('declarationMessage');
+    
+      if (!accepted) {
+        message.className = 'message error';
+        message.textContent = 'Centang persetujuan pernyataan terlebih dahulu.';
+        return;
+      }
+    
+      showLoading('Menyimpan finalisasi...');
+    
+      try {
+        await api('declare', {
+          token: sessionToken,
+          moduleId: moduleId,
+          accepted: true
+        });
+    
+        renderDashboard();
+      } catch (error) {
+        alert(error.message);
+        showDeclaration(moduleId);
+      }
+    }
+
     function logout() {
       localStorage.removeItem('portalUser');
       localStorage.removeItem('portalToken');
