@@ -293,6 +293,18 @@
       }
     }
 
+    function watchAgain(videoId) {
+      const iframe = document.getElementById(
+        `video-frame-${videoId}`
+      );
+    
+      if (!iframe) return;
+    
+      const baseUrl = iframe.src.split('?')[0];
+    
+      iframe.src = `${baseUrl}?autoplay=1`;
+    }
+
     function renderModule(moduleId, videos) {
       activeModuleId = moduleId;
       activeVideos = videos;
