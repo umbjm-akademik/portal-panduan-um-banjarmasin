@@ -352,7 +352,9 @@
               <article class="module">
                 <h2>${index + 1}. ${escapeHtml(video.judul)}</h2>
 
-                <div class="video-wrapper" id="video-wrapper-${escapeHtml(video.video_id)}">
+                <div
+                  class="video-wrapper ${video.orientasi === 'vertikal' ? 'video-vertical' : 'video-horizontal'}"
+                  id="video-wrapper-${escapeHtml(video.video_id)}">
 
                   <iframe
                     id="video-frame-${escapeHtml(video.video_id)}"
