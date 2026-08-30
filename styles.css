@@ -150,3 +150,11 @@ button:disabled { cursor: wait; opacity: .7; }
   border-radius: 50%;
   animation: spin .8s linear infinite;
 }
+
+.portal-logo {
+  display: block;
+  width: min(100%, 420px);
+  height: auto;
+  margin: 0 auto 20px;
+  object-fit: contain;
+}
