@@ -753,6 +753,74 @@
       }
     }
 
+    function fileToBase64_(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+    
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(
+          new Error('File tidak dapat dibaca.')
+        );
+    
+        reader.readAsDataURL(file);
+      });
+    }
+    
+    
+    async function uploadDocument(
+      jenisDokumen,
+      namaDokumen,
+      inputId
+    ) {
+      const input = document.getElementById(inputId);
+    
+      if (!input || !input.files.length) {
+        alert('Silakan pilih file terlebih dahulu.');
+        return;
+      }
+    
+      const file = input.files[0];
+    
+      if (file.size > 1024 * 1024) {
+        alert('Ukuran file maksimal 1 MB.');
+        return;
+      }
+    
+      const allowedTypes = [
+        'image/jpeg',
+        'image/png',
+        'application/pdf'
+      ];
+    
+      if (!allowedTypes.includes(file.type)) {
+        alert('Format file harus JPG, JPEG, PNG, atau PDF.');
+        return;
+      }
+    
+      try {
+        showLoading('Mengunggah dokumen...');
+    
+        const fileData = await fileToBase64_(file);
+    
+        const result = await api('uploadDocument', {
+          token: sessionToken,
+          jenisDokumen: jenisDokumen,
+          namaDokumen: namaDokumen || '',
+          fileName: file.name,
+          mimeType: file.type,
+          fileData: fileData
+        });
+    
+        alert(`Berhasil mengunggah:\n${result.nama_file}`);
+    
+        renderDashboard();
+    
+      } catch (error) {
+        alert(error.message);
+        renderDashboard();
+      }
+    }
+    
     function toEmbedUrl(url) {
       const value = String(url || '');
       const driveMatch = value.match(/\/d\/([^/]+)/) || value.match(/[?&]id=([^&]+)/);
