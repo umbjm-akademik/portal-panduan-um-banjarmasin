@@ -707,7 +707,11 @@
     }
 
     if (currentUser && sessionToken) {
-      renderDashboard();
+      if (String(currentUser.role).toLowerCase() === 'admin') {
+        renderAdminDashboard();
+      } else {
+        renderDashboard();
+      }
     } else {
       renderLogin();
     }
