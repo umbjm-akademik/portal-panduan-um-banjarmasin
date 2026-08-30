@@ -212,10 +212,24 @@
 
               ${daftarModul}
 
+              <section class="module documents-section">
+                <h2>📎 Dokumen Persyaratan</h2>
+              
+                <p class="document-info">
+                  Unggah dokumen sesuai petunjuk. Format yang diterima:
+                  JPG, JPEG, PNG, atau PDF. Maksimal 1 MB per dokumen.
+                </p>
+              
+                <div id="documentList">
+                  <p class="loading-text">Memuat status dokumen...</p>
+                </div>
+              </section>
+              
               <button class="logout" type="button" onclick="logout()">Keluar</button>
             </section>
           </main>
         `;
+        renderDocuments();
       } catch (error) {
         logout();
       }
@@ -766,7 +780,6 @@
       });
     }
     
-    
     async function uploadDocument(
       jenisDokumen,
       namaDokumen,
@@ -819,6 +832,142 @@
         alert(error.message);
         renderDashboard();
       }
+    }
+
+    async function renderDocuments() {
+      const container = document.getElementById('documentList');
+    
+      if (!container) return;
+    
+      try {
+        const result = await api('documents', {
+          token: sessionToken
+        });
+    
+        const documents = result.documents || [];
+    
+        const wajib = [
+          'Akta Kelahiran',
+          'KTP',
+          'Kartu Keluarga',
+          'Ijazah Terakhir',
+          'Transkrip Terakhir'
+        ];
+    
+        const uploaded = {};
+    
+        documents.forEach(doc => {
+          uploaded[doc.jenis_dokumen] = doc;
+        });
+    
+        container.innerHTML = `
+          ${wajib.map((jenis, index) => {
+            const doc = uploaded[jenis];
+    
+            return `
+              <div class="document-item">
+                <div class="document-title">
+                  <strong>${index + 1}. ${jenis}</strong>
+                  <span class="${doc ? 'document-done' : 'document-required'}">
+                    ${doc ? '✓ Sudah diunggah' : 'Wajib'}
+                  </span>
+                </div>
+    
+                ${
+                  doc
+                    ? `<small>${escapeHtml(doc.nama_file)}</small>`
+                    : ''
+                }
+    
+                <input
+                  type="file"
+                  id="document-${index}"
+                  accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
+                >
+    
+                <button
+                  type="button"
+                  onclick="uploadDocument(
+                    '${escapeHtml(jenis)}',
+                    '',
+                    'document-${index}'
+                  )">
+                  ${doc ? 'Ganti Dokumen' : 'Unggah Dokumen'}
+                </button>
+              </div>
+            `;
+          }).join('')}
+    
+          <div class="document-item">
+            <div class="document-title">
+              <strong>Dokumen Lainnya</strong>
+              <span class="document-optional">Opsional</span>
+            </div>
+    
+            <input
+              id="otherDocumentName"
+              type="text"
+              placeholder="Nama dokumen, misalnya Surat Pindah"
+            >
+    
+            <input
+              type="file"
+              id="document-other"
+              accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
+            >
+    
+            <button
+              type="button"
+              onclick="uploadDocument(
+                'Dokumen Lainnya',
+                document.getElementById('otherDocumentName').value.trim(),
+                'document-other'
+              )">
+              Tambah Dokumen
+            </button>
+    
+            <div id="otherDocuments"></div>
+          </div>
+        `;
+    
+        renderOtherDocuments(documents);
+    
+      } catch (error) {
+        container.innerHTML = `
+          <p class="message error">
+            ${escapeHtml(error.message)}
+          </p>
+        `;
+      }
+    }
+
+    function renderOtherDocuments(documents) {
+      const container = document.getElementById('otherDocuments');
+    
+      if (!container) return;
+    
+      const others = documents.filter(
+        doc => doc.jenis_dokumen === 'Dokumen Lainnya'
+      );
+    
+      if (!others.length) {
+        container.innerHTML = '';
+        return;
+      }
+    
+      container.innerHTML = `
+        <div class="other-document-list">
+          <strong>Dokumen tambahan:</strong>
+    
+          ${others.map(doc => `
+            <div class="other-document-row">
+              <span>
+                ✓ ${escapeHtml(doc.nama_file)}
+              </span>
+            </div>
+          `).join('')}
+        </div>
+      `;
     }
     
     function toEmbedUrl(url) {
