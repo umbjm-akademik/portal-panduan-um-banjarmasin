@@ -218,3 +218,29 @@ button:disabled { cursor: wait; opacity: .7; }
   font-size: 13px;
   opacity: .9;
 }
+
+.video-completed {
+  opacity: .62;
+  filter: saturate(.7);
+  transition: opacity .2s ease, filter .2s ease;
+}
+
+.video-completed:hover {
+  opacity: .9;
+  filter: saturate(1);
+}
+
+.video-completed-status {
+  color: var(--primary);
+  font-weight: 700;
+  font-size: 14px;
+  margin-top: 14px;
+}
+
+.watch-again-button {
+  background: #64748b;
+}
+
+.watch-again-button:hover {
+  background: #475569;
+}
