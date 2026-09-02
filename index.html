@@ -86,7 +86,11 @@
       if (!dateInput || !displayInput) return;
     
       displayInput.addEventListener('click', function () {
-        dateInput.showPicker();
+        if (typeof dateInput.showPicker === 'function') {
+          dateInput.showPicker();
+        } else {
+          dateInput.click();
+        }
       });
     
       dateInput.addEventListener('change', function () {
@@ -100,7 +104,7 @@
         displayInput.value = `${day}/${month}/${year}`;
       });
     }
-
+    
     function renderLogin() {
       app.innerHTML = `
         <main class="container">
@@ -123,9 +127,8 @@
               <label for="loginId">NIM atau Username</label>
               <input id="loginId" type="text" required autocomplete="username">
 
-              <label for="tanggalLahir">Tanggal Lahir</label>
+              <label for="tanggalLahirDisplay">Tanggal Lahir</label>
 
-              <!-- Input yang terlihat oleh user -->
               <input
                 id="tanggalLahirDisplay"
                 type="text"
@@ -133,15 +136,14 @@
                 readonly
               >
               
-              <!-- Input asli untuk memunculkan datepicker -->
               <input
                 id="tanggalLahir"
                 type="date"
-                style="position:absolute; opacity:0; pointer-events:none;"
+                style="position:absolute; opacity:0; width:1px; height:1px;"
               >
               
               <small class="date-format-hint">
-                Pilih tanggal lahir
+                Klik untuk memilih tanggal
               </small>
 
               <button id="loginButton" type="submit">Masuk</button>
