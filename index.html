@@ -771,8 +771,34 @@
           if (currentTime > state.maxWatched) {
             state.maxWatched = currentTime;
           }
-    
+          
           state.position = currentTime;
+          
+          
+          /*
+           * Jika sudah mencapai titik completion,
+           * pastikan posisi tersebut tersimpan.
+           *
+           * Contoh:
+           * Durasi = 103 detik
+           * Toleransi = 7 detik
+           * Completion point = 96 detik
+           */
+          if (duration > 0) {
+          
+            const completionPoint =
+              Math.max(
+                0,
+                duration - 7
+              );
+          
+            if (
+              currentTime >= completionPoint &&
+              state.maxWatched < completionPoint
+            ) {
+              state.maxWatched = currentTime;
+            }
+          }
     
     
           /*
@@ -1037,11 +1063,8 @@
     }
     
     
-    function handleYouTubeStateChange(
-      video,
-      event
-    ) {
-    
+    function handleYouTubeStateChange(video, event) {
+
       const player =
         youtubePlayers[video.video_id];
     
@@ -1050,7 +1073,7 @@
     
       /*
        * Video yang sudah selesai boleh diputar ulang
-       * tanpa pembatas anti-seek.
+       * dan tidak terkena pembatas anti-seek.
        */
       if (video.selesai) {
     
@@ -1070,7 +1093,7 @@
     
     
       /*
-       * PLAYING
+       * VIDEO SEDANG DIPUTAR
        */
       if (
         event.data === YT.PlayerState.PLAYING
@@ -1083,7 +1106,7 @@
     
     
       /*
-       * PAUSED
+       * VIDEO DI-PAUSE
        */
       if (
         event.data === YT.PlayerState.PAUSED
@@ -1103,8 +1126,6 @@
     
       /*
        * BUFFERING
-       *
-       * Jangan menghapus maxWatched.
        */
       if (
         event.data === YT.PlayerState.BUFFERING
@@ -1117,7 +1138,7 @@
     
     
       /*
-       * ENDED
+       * VIDEO SELESAI
        */
       if (
         event.data === YT.PlayerState.ENDED
@@ -1128,15 +1149,30 @@
         );
     
     
-        const playerDuration =
-          Number(
-            player.getDuration()
-          ) || 0;
+        let playerDuration = 0;
+        let currentTime = 0;
     
-        const currentTime =
-          Number(
-            player.getCurrentTime()
-          ) || 0;
+    
+        try {
+    
+          playerDuration =
+            Number(
+              player.getDuration()
+            ) || 0;
+    
+          currentTime =
+            Number(
+              player.getCurrentTime()
+            ) || 0;
+    
+        } catch (error) {
+    
+          console.warn(
+            'Tidak dapat membaca durasi video:',
+            error
+          );
+        }
+    
     
         const state =
           getWatchState(
@@ -1145,47 +1181,77 @@
     
     
         /*
-         * Toleransi 4 detik di bagian akhir.
+         * =====================================================
+         * PENTING
+         * =====================================================
+         *
+         * YouTube pada beberapa HP/browser dapat:
+         *
+         * Durasi     : 1:43
+         * END        : sekitar 1:42
+         *
+         * Karena itu kita tidak meminta currentTime harus
+         * sama persis dengan duration.
+         *
+         * Video dianggap sudah mencapai batas completion
+         * jika maxWatched sudah berada 7 detik sebelum durasi.
          */
-        const END_TOLERANCE = 7;
+        const COMPLETION_TOLERANCE = 7;
     
     
         /*
-         * Jika durasi belum tersedia,
-         * jangan langsung menyelesaikan.
+         * Kalau durasi YouTube tersedia.
          */
-        if (playerDuration <= 0) {
+        if (playerDuration > 0) {
     
-          player.seekTo(
-            state.maxWatched,
-            true
-          );
-    
-          player.playVideo();
-    
-          return;
-        }
+          const completionPoint =
+            Math.max(
+              0,
+              playerDuration -
+              COMPLETION_TOLERANCE
+            );
     
     
-        /*
-         * Cek apakah mahasiswa benar-benar telah
-         * melewati hampir seluruh video.
-         */
-        const completionPoint =
-          Math.max(
-            0,
-            playerDuration - 7
-          );
-        
-        const watchedUntilEnd =
-          state.maxWatched >= completionPoint;
+          const watchedUntilCompletion =
+            state.maxWatched >=
+            completionPoint;
     
-    
-        if (!watchedUntilEnd) {
     
           /*
-           * Berarti kemungkinan mahasiswa
-           * seek langsung ke ujung.
+           * =================================================
+           * SUDAH MENONTON SAMPAI BATAS YANG DITENTUKAN
+           * =================================================
+           */
+          if (watchedUntilCompletion) {
+    
+            state.position =
+              playerDuration;
+    
+            state.maxWatched =
+              playerDuration;
+    
+            saveWatchState(
+              video.video_id,
+              state
+            );
+    
+    
+            /*
+             * Tandai selesai.
+             */
+            finishVideo(video);
+    
+            return;
+          }
+    
+    
+          /*
+           * =================================================
+           * BELUM MENONTON SAMPAI BATAS
+           * =================================================
+           *
+           * Kemungkinan user melakukan seek langsung
+           * ke akhir video.
            *
            * Kembalikan ke posisi terakhir yang sah.
            */
@@ -1198,6 +1264,7 @@
               )
             );
     
+    
           state.position =
             returnPosition;
     
@@ -1206,37 +1273,74 @@
             state
           );
     
-          player.seekTo(
-            returnPosition,
-            true
-          );
-    
-          updateWatchStatus(video);
     
           try {
+    
+            player.seekTo(
+              returnPosition,
+              true
+            );
+    
             player.playVideo();
-          } catch (e) {}
+    
+          } catch (error) {
+    
+            console.warn(
+              'Gagal melanjutkan video:',
+              error
+            );
+          }
+    
+    
+          updateWatchStatus(video);
     
           return;
         }
     
     
         /*
-         * Valid.
+         * =====================================================
+         * FALLBACK
+         * =====================================================
+         *
+         * Kalau YouTube tidak memberikan duration,
+         * gunakan posisi aktual yang sudah ditonton.
+         *
+         * Jika sudah lebih dari 95 detik, kita anggap selesai.
+         *
+         * Angka ini hanya fallback, bukan kondisi normal.
          */
-        state.position =
-          playerDuration;
+        if (
+          state.maxWatched >= 95 ||
+          currentTime >= 95
+        ) {
     
-        state.maxWatched =
-          playerDuration;
+          finishVideo(video);
     
-        saveWatchState(
-          video.video_id,
-          state
-        );
+          return;
+        }
     
     
-        finishVideo(video);
+        /*
+         * Jika tidak memenuhi syarat,
+         * kembali ke posisi terakhir yang valid.
+         */
+        try {
+    
+          player.seekTo(
+            state.maxWatched,
+            true
+          );
+    
+          player.playVideo();
+    
+        } catch (error) {
+    
+          console.warn(
+            'Gagal mengembalikan posisi video:',
+            error
+          );
+        }
       }
     }
     
