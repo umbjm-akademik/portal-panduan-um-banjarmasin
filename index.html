@@ -1010,16 +1010,38 @@
     }
     
     function toEmbedUrl(url) {
-      const value = String(url || '');
-      const driveMatch = value.match(/\/d\/([^/]+)/) || value.match(/[?&]id=([^&]+)/);
-
+      const value = String(url || '').trim();
+    
+      // Google Drive
+      const driveMatch =
+        value.match(/\/d\/([^/]+)/) ||
+        value.match(/[?&]id=([^&]+)/);
+    
       if (value.includes('drive.google.com') && driveMatch) {
         return `https://drive.google.com/file/d/${driveMatch[1]}/preview`;
       }
-
+    
+      // YouTube Shorts
+      const shortsMatch = value.match(
+        /youtube\.com\/shorts\/([^?&/]+)/
+      );
+    
+      if (shortsMatch) {
+        return `https://www.youtube.com/embed/${shortsMatch[1]}`;
+      }
+    
+      // YouTube biasa
+      const youtubeMatch = value.match(
+        /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^?&/]+)/
+      );
+    
+      if (youtubeMatch) {
+        return `https://www.youtube.com/embed/${youtubeMatch[1]}`;
+      }
+    
       return value;
     }
-
+    
     function showDeclaration(moduleId) {
       app.innerHTML = `
         <main class="container">
