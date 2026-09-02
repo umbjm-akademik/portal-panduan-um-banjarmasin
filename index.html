@@ -6,6 +6,7 @@
   <title>Portal Panduan UM Banjarmasin</title>
   <link rel="stylesheet" href="styles.css">
   <script src="config.js"></script>
+  <script src="https://www.youtube.com/iframe_api"></script>
 </head>
 
 <body>
@@ -17,7 +18,10 @@
     let sessionToken = localStorage.getItem('portalToken');
     let activeModuleId = null;
     let activeVideos = [];
-    let watchTimers = [];
+    let youtubePlayers = {};
+    let watchStates = {};
+    let watchSaveTimers = {};
+    let playerReady = false;
 
     function escapeHtml(value) {
       return String(value || '').replace(/[&<>"']/g, char => ({
@@ -347,15 +351,13 @@
     }
 
     function watchAgain(videoId) {
-      const iframe = document.getElementById(
-        `video-frame-${videoId}`
-      );
+      const player =
+        youtubePlayers[videoId];
     
-      if (!iframe) return;
+      if (!player) return;
     
-      const baseUrl = iframe.src.split('?')[0];
-    
-      iframe.src = `${baseUrl}?autoplay=1`;
+      player.seekTo(0, true);
+      player.playVideo();
     }
 
     function renderModule(moduleId, videos) {
@@ -408,31 +410,27 @@
                 <div
                   class="video-wrapper ${video.orientasi === 'vertical' ? 'video-vertical' : 'video-horizontal'}"
                   id="video-wrapper-${escapeHtml(video.video_id)}">
-              
-                  <iframe
-                    id="video-frame-${escapeHtml(video.video_id)}"
-                    src="${escapeHtml(toEmbedUrl(video.url_video))}"
-                    title="${escapeHtml(video.judul)}"
-                    class="video-frame"
-                    allow="autoplay; fullscreen"
-                    allowfullscreen>
-                  </iframe>
-              
+                
+                  <div
+                    id="youtube-player-${escapeHtml(video.video_id)}"
+                    class="video-frame">
+                  </div>
+                
                   ${!video.selesai ? `
                     <div
                       id="video-lock-${escapeHtml(video.video_id)}"
                       class="video-lock"
                       onclick="startWatching('${escapeHtml(video.video_id)}')">
-              
+                
                       <div class="video-lock-content">
                         <div class="play-icon">▶</div>
                         <strong>Mulai Menonton</strong>
                         <span>Klik untuk memulai video</span>
                       </div>
-              
+                
                     </div>
                   ` : ''}
-              
+                
                 </div>
               
                 ${status}
@@ -463,182 +461,394 @@
         </main>
       `;
 
-      initializeWatchTimers();
+      setTimeout(() => {
+
+        if (
+          typeof YT === 'undefined' ||
+          !YT.Player
+        ) {
+          return;
+        }
+      
+        youtubePlayers = {};
+        watchSaveTimers = {};
+      
+        activeVideos
+          .filter(video => {
+            const index =
+              activeVideos.findIndex(
+                item =>
+                  item.video_id ===
+                  video.video_id
+              );
+      
+            return (
+              index === 0 ||
+              activeVideos[index - 1].selesai ||
+              video.selesai
+            );
+          })
+          .forEach(video => {
+            createYouTubePlayer(video);
+          });
+      
+      }, 300);
     }
 
-    /*function watchKey(videoId) {
+    function extractYouTubeId(url) {
+      const value = String(url || '').trim();
+    
+      const shorts = value.match(
+        /youtube\.com\/shorts\/([^?&/]+)/
+      );
+    
+      if (shorts) {
+        return shorts[1];
+      }
+    
+      const watch = value.match(
+        /youtube\.com\/watch\?v=([^?&/]+)/
+      );
+    
+      if (watch) {
+        return watch[1];
+      }
+    
+      const shortUrl = value.match(
+        /youtu\.be\/([^?&/]+)/
+      );
+    
+      if (shortUrl) {
+        return shortUrl[1];
+      }
+    
+      const embed = value.match(
+        /youtube\.com\/embed\/([^?&/]+)/
+      );
+    
+      if (embed) {
+        return embed[1];
+      }
+    
+      return '';
+    }
+
+    function getWatchKey(videoId) {
+      if (!currentUser || !currentUser.user_id) return '';
+    
       return `portalWatch_${currentUser.user_id}_${videoId}`;
     }
 
     function getWatchState(videoId) {
-      return JSON.parse(
-        localStorage.getItem(watchKey(videoId)) ||
-        '{"seconds":0,"running":false}'
-      );
-    }
-
-    function saveWatchState(videoId, state) {
-      localStorage.setItem(watchKey(videoId), JSON.stringify(state));
-    }*/
-
-    const watchStates = {};
-
-    function getWatchState(videoId) {
-      const video = activeVideos.find(
-        item => String(item.video_id) === String(videoId)
-      );
+      const key = getWatchKey(videoId);
     
-      // Jika video sudah selesai menurut server,
-      // tidak perlu menyimpan timer lokal.
-      if (video && video.selesai) {
+      if (!key) {
         return {
-          seconds: Number(video.durasi_detik || 0),
-          running: false
+          position: 0,
+          maxWatched: 0
         };
       }
     
-      if (!watchStates[videoId]) {
-        watchStates[videoId] = {
-          seconds: 0,
-          running: false
+      try {
+        const saved = JSON.parse(
+          localStorage.getItem(key) || '{}'
+        );
+    
+        return {
+          position: Number(saved.position || 0),
+          maxWatched: Number(saved.maxWatched || 0)
+        };
+      } catch (error) {
+        return {
+          position: 0,
+          maxWatched: 0
         };
       }
+    }
+
+    function saveWatchState(videoId, position, maxWatched) {
+      const key = getWatchKey(videoId);
     
-      return watchStates[videoId];
-    }
-
-    function saveWatchState(videoId, state) {
-      watchStates[videoId] = {
-        seconds: Number(state.seconds || 0),
-        running: Boolean(state.running)
-      };
-    }
+      if (!key) return;
     
-    function formatTime(seconds) {
-      const minutes = Math.floor(seconds / 60);
-      const remainingSeconds = seconds % 60;
-
-      return `${minutes}:${String(remainingSeconds).padStart(2, '0')}`;
+      localStorage.setItem(
+        key,
+        JSON.stringify({
+          position: Math.max(0, Number(position || 0)),
+          maxWatched: Math.max(0, Number(maxWatched || 0)),
+          savedAt: Date.now()
+        })
+      );
     }
 
-    function watchStatusHtml(video) {
-      const duration = Math.max(Number(video.durasi_detik || 0), 1);
+    function createYouTubePlayer(video) {
+      const elementId = `youtube-player-${video.video_id}`;
+    
+      const element = document.getElementById(elementId);
+    
+      if (!element) return;
+    
+      const youtubeId = extractYouTubeId(video.url_video);
+    
+      if (!youtubeId) {
+        element.innerHTML = `
+          <div style="
+            height:100%;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            color:white;
+            padding:20px;
+            text-align:center;
+          ">
+            Video tidak dapat dimuat.
+          </div>
+        `;
+        return;
+      }
+    
       const state = getWatchState(video.video_id);
-      const watched = Math.min(Number(state.seconds || 0), duration);
-      const remaining = Math.max(duration - watched, 0);
-
-      if (remaining === 0) {
-        return `
-          <p style="color:#006747;font-weight:bold;margin-top:14px;">
-            ✓ Durasi video telah terpenuhi
-          </p>
-          <button type="button"
-            onclick="openQuiz('${escapeHtml(activeModuleId)}', '${escapeHtml(video.video_id)}')">
-            Lanjut ke Kuis
-          </button>
-        `;
-      }
-
-      if (!state.running) {
-        return `
-          <p style="color:#64748b;margin-top:14px;">
-            Tonton video hingga waktu minimum terpenuhi: ${formatTime(duration)}.
-          </p>
-          <button type="button" onclick="startWatching('${escapeHtml(video.video_id)}')">
-            Mulai Menonton
-          </button>
-        `;
-      }
-
-      return `
-        <p style="color:#006747;font-weight:bold;margin-top:14px;">
-          Sedang mencatat waktu menonton: ${formatTime(watched)} / ${formatTime(duration)}
-        </p>
-        <p style="color:#64748b;font-size:13px;">
-          Jangan pindah tab atau tutup halaman selama menonton.
-        </p>
-      `;
+    
+      youtubePlayers[video.video_id] = new YT.Player(
+        elementId,
+        {
+          videoId: youtubeId,
+    
+          playerVars: {
+            autoplay: 0,
+            controls: 1,
+            rel: 0,
+            playsinline: 1,
+            fs: 1,
+            iv_load_policy: 3,
+            disablekb: 1
+          },
+    
+          events: {
+            onReady: event => {
+              const duration = event.target.getDuration();
+    
+              if (duration > 0 && !video.durasi_detik) {
+                video.durasi_detik = Math.round(duration);
+              }
+    
+              updateWatchStatus(video);
+    
+              if (state.position > 0 && !video.selesai) {
+                event.target.seekTo(
+                  Math.min(
+                    state.position,
+                    state.maxWatched
+                  ),
+                  true
+                );
+              }
+            },
+    
+            onStateChange: event => {
+              handleYouTubeStateChange(
+                event,
+                video
+              );
+            }
+          }
+        }
+      );
     }
 
-    function updateWatchStatus(video) {
-      const element = document.getElementById(`watch-status-${video.video_id}`);
-
-      if (element) {
-        element.innerHTML = watchStatusHtml(video);
+    function handleYouTubeStateChange(event, video) {
+      const player = event.target;
+    
+      if (!player || typeof player.getCurrentTime !== 'function') {
+        return;
+      }
+    
+      const videoId = video.video_id;
+    
+      if (event.data === YT.PlayerState.PLAYING) {
+    
+        if (!watchSaveTimers[videoId]) {
+          watchSaveTimers[videoId] = setInterval(() => {
+    
+            const currentPlayer = youtubePlayers[videoId];
+    
+            if (!currentPlayer) return;
+    
+            const currentTime =
+              currentPlayer.getCurrentTime();
+    
+            const state =
+              getWatchState(videoId);
+    
+            /*
+             * Jika posisi sekarang lebih jauh
+             * dari posisi maksimal yang sudah ditonton,
+             * berarti pengguna benar-benar menonton maju.
+             */
+            if (currentTime > state.maxWatched + 1) {
+              state.maxWatched = currentTime;
+            }
+    
+            state.position = currentTime;
+    
+            saveWatchState(
+              videoId,
+              state.position,
+              state.maxWatched
+            );
+    
+            updateWatchStatus(video);
+    
+          }, 1000);
+        }
+    
+      } else {
+    
+        if (watchSaveTimers[videoId]) {
+          clearInterval(
+            watchSaveTimers[videoId]
+          );
+    
+          delete watchSaveTimers[videoId];
+        }
+    
+        const currentTime =
+          player.getCurrentTime();
+    
+        const state =
+          getWatchState(videoId);
+    
+        saveWatchState(
+          videoId,
+          currentTime,
+          state.maxWatched
+        );
+      }
+    
+      /*
+       * VIDEO SELESAI
+       */
+      if (event.data === YT.PlayerState.ENDED) {
+    
+        if (watchSaveTimers[videoId]) {
+          clearInterval(
+            watchSaveTimers[videoId]
+          );
+    
+          delete watchSaveTimers[videoId];
+        }
+    
+        saveWatchState(
+          videoId,
+          player.getDuration(),
+          player.getDuration()
+        );
+    
+        completeVideo(
+          activeModuleId,
+          videoId
+        );
       }
     }
 
-    // function startWatching(videoId) {
-    //   const state = getWatchState(videoId);
-    //   state.running = true;
-    //   saveWatchState(videoId, state);
-
-    //   initializeWatchTimers();
-    // }
+    function monitorYouTubeSeeking(video) {
+      const videoId = video.video_id;
+    
+      const timer = setInterval(() => {
+    
+        const player =
+          youtubePlayers[videoId];
+    
+        if (!player) return;
+    
+        if (
+          player.getPlayerState() !==
+          YT.PlayerState.PLAYING
+        ) {
+          return;
+        }
+    
+        const currentTime =
+          player.getCurrentTime();
+    
+        const state =
+          getWatchState(videoId);
+    
+        /*
+         * Toleransi 2 detik untuk menghindari
+         * false detection karena buffering.
+         */
+        if (
+          currentTime >
+          state.maxWatched + 2
+        ) {
+    
+          player.seekTo(
+            state.maxWatched,
+            true
+          );
+    
+          state.position =
+            state.maxWatched;
+    
+          saveWatchState(
+            videoId,
+            state.maxWatched,
+            state.maxWatched
+          );
+        }
+    
+      }, 500);
+    
+      watchSaveTimers[
+        `${videoId}_seek`
+      ] = timer;
+    }
 
     function startWatching(videoId) {
-      const state = getWatchState(videoId);
+      const player =
+        youtubePlayers[videoId];
     
-      state.running = true;
-      saveWatchState(videoId, state);
-    
-      const iframe = document.getElementById(
-        `video-frame-${videoId}`
-      );
-    
-      const lock = document.getElementById(
-        `video-lock-${videoId}`
-      );
-    
-      if (iframe) {
-        const baseUrl = iframe.src.split('?')[0];
-    
-        iframe.src = `${baseUrl}?autoplay=1`;
-      }
+      const lock =
+        document.getElementById(
+          `video-lock-${videoId}`
+        );
     
       if (lock) {
         lock.style.display = 'none';
       }
     
-      initializeWatchTimers();
+      if (!player) {
+        return;
+      }
+    
+      const state =
+        getWatchState(videoId);
+    
+      if (state.position > 0) {
+        player.seekTo(
+          Math.min(
+            state.position,
+            state.maxWatched
+          ),
+          true
+        );
+      }
+    
+      player.playVideo();
+    
+      const video =
+        activeVideos.find(
+          item =>
+            String(item.video_id) ===
+            String(videoId)
+        );
+    
+      if (video) {
+        monitorYouTubeSeeking(video);
+      }
     }
     
-    function initializeWatchTimers() {
-      watchTimers.forEach(timer => clearInterval(timer));
-      watchTimers = [];
-
-      activeVideos
-        .filter(video => !video.selesai)
-        .forEach(video => {
-          updateWatchStatus(video);
-
-          const state = getWatchState(video.video_id);
-          if (!state.running) return;
-
-          const timer = setInterval(() => {
-            const current = getWatchState(video.video_id);
-
-            if (!current.running || document.hidden) return;
-
-            const duration = Math.max(Number(video.durasi_detik || 0), 1);
-            current.seconds = Math.min(Number(current.seconds || 0) + 1, duration);
-
-            if (current.seconds >= duration) {
-              current.running = false;
-            }
-
-            saveWatchState(video.video_id, current);
-            updateWatchStatus(video);
-
-            if (!current.running) {
-              clearInterval(timer);
-            }
-          }, 1000);
-
-          watchTimers.push(timer);
-        });
-    }
-
     async function openQuiz(moduleId, videoId) {
       showLoading('Menyiapkan kuis...');
 
