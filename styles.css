@@ -335,11 +335,3 @@ button:disabled { cursor: wait; opacity: .7; }
   margin-top: 8px;
   word-break: break-word;
 }
-
-.date-format-hint {
-  display: block;
-  margin-top: -8px;
-  margin-bottom: 14px;
-  color: #64748b;
-  font-size: 12px;
-}
