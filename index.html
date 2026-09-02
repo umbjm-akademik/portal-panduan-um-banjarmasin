@@ -235,8 +235,8 @@
               } else if (module.selesai) {
                 action = `
                   <button type="button"
-                    onclick="showDeclaration('${escapeHtml(module.module_id)}')">
-                    Finalisasi Modul
+                    onclick="showModuleDocuments('${escapeHtml(module.module_id)}')">
+                    📎 Lengkapi Berkas & Finalisasi
                   </button>
                 `;
               } else {
@@ -278,25 +278,11 @@
               </div>
 
               ${daftarModul}
-
-              <section class="module documents-section">
-                <h2>📎 Dokumen Persyaratan</h2>
-              
-                <p class="document-info">
-                  Unggah dokumen sesuai petunjuk. Format yang diterima:
-                  JPG, JPEG, PNG, atau PDF. Maksimal 1 MB per dokumen.
-                </p>
-              
-                <div id="documentList">
-                  <p class="loading-text">Memuat status dokumen...</p>
-                </div>
-              </section>
               
               <button class="logout" type="button" onclick="logout()">Keluar</button>
             </section>
           </main>
         `;
-        renderDocuments();
       } catch (error) {
         logout();
       }
@@ -2207,6 +2193,427 @@
       }
     }
 
+    async function showModuleDocuments(moduleId) {
+      activeModuleId = String(moduleId || '').trim();
+    
+      if (!activeModuleId) {
+        alert('ID modul tidak ditemukan.');
+        return;
+      }
+    
+      showLoading('Memuat persyaratan dokumen...');
+    
+      try {
+        const result = await api('documents', {
+          token: sessionToken
+        });
+    
+        const documents =
+          result.documents || [];
+    
+        renderModuleDocuments(
+          activeModuleId,
+          documents
+        );
+    
+      } catch (error) {
+    
+        console.error(
+          'Gagal memuat dokumen:',
+          error
+        );
+    
+        alert(
+          error.message ||
+          'Dokumen tidak dapat dimuat.'
+        );
+    
+        renderDashboard();
+      }
+    }
+
+    function renderModuleDocuments(
+      moduleId,
+      documents
+    ) {
+    
+      const wajib = [
+        'Akta Kelahiran',
+        'KTP',
+        'Kartu Keluarga',
+        'Ijazah Terakhir',
+        'Transkrip Terakhir'
+      ];
+    
+      const uploaded = {};
+    
+      documents.forEach(doc => {
+        uploaded[
+          doc.jenis_dokumen
+        ] = doc;
+      });
+    
+      const semuaWajib =
+        wajib.every(
+          jenis => !!uploaded[jenis]
+        );
+    
+      app.innerHTML = `
+        <main class="container">
+    
+          <section class="card">
+    
+            <div class="brand">
+    
+              <h1>📎 Unggah Berkas Persyaratan</h1>
+    
+              <p>
+                Semua video dan kuis pada modul telah selesai.
+              </p>
+    
+              <p>
+                Silakan unggah seluruh berkas yang diminta
+                sebelum melanjutkan ke tahap pernyataan.
+              </p>
+    
+            </div>
+    
+    
+            <div class="module">
+    
+              <p style="
+                font-size:14px;
+                line-height:1.6;
+                color:#475569;
+              ">
+                Format yang diterima:
+                JPG, JPEG, PNG, atau PDF.
+                Maksimal 1 MB untuk setiap berkas.
+              </p>
+    
+            </div>
+    
+    
+            ${wajib.map((jenis, index) => {
+    
+              const doc =
+                uploaded[jenis];
+    
+              return `
+    
+                <div class="module document-item">
+    
+                  <div class="document-title">
+    
+                    <strong>
+                      ${index + 1}. ${jenis}
+                    </strong>
+    
+                    <span class="${
+                      doc
+                        ? 'document-done'
+                        : 'document-required'
+                    }">
+    
+                      ${
+                        doc
+                          ? '✓ Sudah diunggah'
+                          : 'Wajib'
+                      }
+    
+                    </span>
+    
+                  </div>
+    
+    
+                  ${
+                    doc
+                      ? `
+                        <small>
+                          ${escapeHtml(
+                            doc.nama_file || ''
+                          )}
+                        </small>
+                      `
+                      : ''
+                  }
+    
+    
+                  <input
+                    type="file"
+                    id="module-document-${index}"
+                    accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
+                  >
+    
+    
+                  <button
+                    type="button"
+                    onclick="uploadModuleDocument(
+                      '${escapeHtml(jenis)}',
+                      'module-document-${index}',
+                      '${escapeHtml(moduleId)}'
+                    )">
+    
+                    ${
+                      doc
+                        ? 'Ganti Dokumen'
+                        : 'Unggah Dokumen'
+                    }
+    
+                  </button>
+    
+                </div>
+    
+              `;
+    
+            }).join('')}
+    
+    
+            <div class="module document-item">
+    
+              <div class="document-title">
+    
+                <strong>
+                  Dokumen Lainnya
+                </strong>
+    
+                <span class="document-optional">
+                  Opsional
+                </span>
+    
+              </div>
+    
+    
+              <input
+                id="otherDocumentName"
+                type="text"
+                placeholder="Judul dokumen"
+              >
+    
+    
+              <input
+                type="file"
+                id="module-document-other"
+                accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
+              >
+    
+    
+              <button
+                type="button"
+                onclick="uploadModuleDocument(
+                  'Dokumen Lainnya',
+                  'module-document-other',
+                  '${escapeHtml(moduleId)}'
+                )">
+    
+                Tambah Dokumen
+    
+              </button>
+    
+    
+              <div id="otherDocuments"></div>
+    
+            </div>
+    
+    
+            ${
+              semuaWajib
+                ? `
+                  <div class="module">
+    
+                    <div class="message success">
+    
+                      ✓ Seluruh berkas wajib telah diunggah.
+    
+                    </div>
+    
+    
+                    <button
+                      type="button"
+                      onclick="showDeclaration(
+                        '${escapeHtml(moduleId)}'
+                      )">
+    
+                      Lanjut ke Pernyataan
+    
+                    </button>
+    
+                  </div>
+                `
+                : `
+                  <div class="module">
+    
+                    <p style="
+                      color:#b45309;
+                      font-size:14px;
+                    ">
+    
+                      Lengkapi seluruh berkas wajib
+                      sebelum melanjutkan.
+    
+                    </p>
+    
+                  </div>
+                `
+            }
+    
+    
+            <button
+              class="logout"
+              type="button"
+              onclick="renderDashboard()">
+    
+              Kembali ke Daftar Modul
+    
+            </button>
+    
+          </section>
+    
+        </main>
+      `;
+    }
+
+    async function uploadModuleDocument(
+      jenisDokumen,
+      inputId,
+      moduleId
+    ) {
+    
+      const input =
+        document.getElementById(inputId);
+    
+      if (
+        !input ||
+        !input.files.length
+      ) {
+        alert(
+          'Silakan pilih file terlebih dahulu.'
+        );
+        return;
+      }
+    
+    
+      const file =
+        input.files[0];
+    
+    
+      if (
+        file.size >
+        1024 * 1024
+      ) {
+        alert(
+          'Ukuran file maksimal 1 MB.'
+        );
+        return;
+      }
+    
+    
+      const allowedTypes = [
+        'image/jpeg',
+        'image/png',
+        'application/pdf'
+      ];
+    
+    
+      if (
+        !allowedTypes.includes(
+          file.type
+        )
+      ) {
+        alert(
+          'Format file harus JPG, JPEG, PNG, atau PDF.'
+        );
+        return;
+      }
+    
+    
+      let namaDokumen = '';
+    
+    
+      if (
+        jenisDokumen ===
+        'Dokumen Lainnya'
+      ) {
+    
+        const nameInput =
+          document.getElementById(
+            'otherDocumentName'
+          );
+    
+        namaDokumen =
+          nameInput?.value.trim() || '';
+    
+    
+        if (!namaDokumen) {
+          alert(
+            'Silakan isi judul dokumen.'
+          );
+          return;
+        }
+      }
+    
+    
+      try {
+    
+        showLoading(
+          'Mengunggah dokumen...'
+        );
+    
+    
+        const fileData =
+          await fileToBase64_(file);
+    
+    
+        const result =
+          await api(
+            'uploadDocument',
+            {
+              token: sessionToken,
+              jenisDokumen:
+                jenisDokumen,
+              namaDokumen:
+                namaDokumen,
+              fileName:
+                file.name,
+              mimeType:
+                file.type,
+              fileData:
+                fileData,
+              moduleId:
+                moduleId
+            }
+          );
+    
+    
+        alert(
+          `Berhasil mengunggah:\n${result.nama_file}`
+        );
+    
+    
+        showModuleDocuments(
+          moduleId
+        );
+    
+    
+      } catch (error) {
+    
+        console.error(
+          'Gagal mengunggah dokumen:',
+          error
+        );
+    
+        alert(
+          error.message ||
+          'Dokumen gagal diunggah.'
+        );
+    
+    
+        showModuleDocuments(
+          moduleId
+        );
+      }
+    }
+    
     async function renderDocuments() {
       const container = document.getElementById('documentList');
     
