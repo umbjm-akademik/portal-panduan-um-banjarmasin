@@ -166,7 +166,9 @@
         try {
           const result = await api('login', {
             loginId: document.getElementById('loginId').value.trim(),
-            tanggalLahir: document.getElementById('tanggalLahir').value
+            tanggalLahir: convertTanggalKeISO(
+              document.getElementById('tanggalLahir').value
+            )
           });
 
           currentUser = result.user;
@@ -188,6 +190,18 @@
         }
       });
       setupTanggalLahir();
+    }
+
+    function convertTanggalKeISO(value) {
+      const parts = String(value || '').split('/');
+    
+      if (parts.length !== 3) {
+        return '';
+      }
+    
+      const [day, month, year] = parts;
+    
+      return `${year}-${month}-${day}`;
     }
 
     async function renderDashboard() {
