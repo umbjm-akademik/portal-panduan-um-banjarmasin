@@ -79,6 +79,36 @@
       });
     }
 
+    function setupTanggalLahir() {
+      const input = document.getElementById('tanggalLahir');
+    
+      if (!input) return;
+    
+      input.addEventListener('input', function () {
+        let value = this.value.replace(/\D/g, '');
+    
+        if (value.length > 8) {
+          value = value.substring(0, 8);
+        }
+    
+        if (value.length > 4) {
+          value =
+            value.substring(0, 2) +
+            '/' +
+            value.substring(2, 4) +
+            '/' +
+            value.substring(4);
+        } else if (value.length > 2) {
+          value =
+            value.substring(0, 2) +
+            '/' +
+            value.substring(2);
+        }
+    
+        this.value = value;
+      });
+    }
+
     function renderLogin() {
       app.innerHTML = `
         <main class="container">
@@ -102,7 +132,20 @@
               <input id="loginId" type="text" required autocomplete="username">
 
               <label for="tanggalLahir">Tanggal Lahir</label>
-              <input id="tanggalLahir" type="date" required>
+
+              <input
+                id="tanggalLahir"
+                type="text"
+                inputmode="numeric"
+                placeholder="DD/MM/YYYY"
+                maxlength="10"
+                autocomplete="bday"
+                required
+              >
+              
+              <small class="date-format-hint">
+                Format: DD/MM/YYYY
+              </small>
 
               <button id="loginButton" type="submit">Masuk</button>
               <div id="message" class="message" role="alert"></div>
@@ -144,6 +187,7 @@
           button.textContent = 'Masuk';
         }
       });
+      setupTanggalLahir();
     }
 
     async function renderDashboard() {
