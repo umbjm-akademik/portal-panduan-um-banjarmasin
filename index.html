@@ -1170,9 +1170,14 @@
          * Cek apakah mahasiswa benar-benar telah
          * melewati hampir seluruh video.
          */
+        const completionPoint =
+          Math.max(
+            0,
+            playerDuration - 7
+          );
+        
         const watchedUntilEnd =
-          state.maxWatched >=
-          playerDuration - END_TOLERANCE;
+          state.maxWatched >= completionPoint;
     
     
         if (!watchedUntilEnd) {
@@ -1254,7 +1259,7 @@
         /*
          * Tandai selesai di backend.
          */
-        await api(
+        const completionResult = await api(
           'completeVideo',
           {
             token: sessionToken,
