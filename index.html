@@ -404,11 +404,11 @@
             return `
               <article class="module">
                 <h2>${index + 1}. ${escapeHtml(video.judul)}</h2>
-
+              
                 <div
-                  class="video-wrapper ${video.orientasi === 'vertikal' ? 'video-vertical' : 'video-horizontal'}"
+                  class="video-wrapper ${video.orientasi === 'vertical' ? 'video-vertical' : 'video-horizontal'}"
                   id="video-wrapper-${escapeHtml(video.video_id)}">
-
+              
                   <iframe
                     id="video-frame-${escapeHtml(video.video_id)}"
                     src="${escapeHtml(toEmbedUrl(video.url_video))}"
@@ -417,24 +417,24 @@
                     allow="autoplay; fullscreen"
                     allowfullscreen>
                   </iframe>
-                
+              
                   ${!video.selesai ? `
                     <div
                       id="video-lock-${escapeHtml(video.video_id)}"
                       class="video-lock"
                       onclick="startWatching('${escapeHtml(video.video_id)}')">
-                  
+              
                       <div class="video-lock-content">
                         <div class="play-icon">▶</div>
                         <strong>Mulai Menonton</strong>
                         <span>Klik untuk memulai video</span>
                       </div>
-                  
+              
                     </div>
                   ` : ''}
-                
+              
                 </div>
-
+              
                 ${status}
               </article>
             `;
