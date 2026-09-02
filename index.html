@@ -359,18 +359,45 @@
     }
     
     async function openModule(moduleId) {
-      showLoading('Memuat video...');
 
+      /*
+       * Pastikan ID modul selalu disimpan secara global.
+       */
+      activeModuleId = String(moduleId || '').trim();
+    
+      if (!activeModuleId) {
+        alert('ID modul tidak ditemukan.');
+        return;
+      }
+    
+      showLoading();
+    
       try {
-        const result = await api('videos', {
-          token: sessionToken,
-          moduleId: moduleId
-        });
-
-        renderModule(moduleId, result.videos || []);
+    
+        const result = await api(
+          'videos',
+          {
+            token: sessionToken,
+            moduleId: activeModuleId
+          }
+        );
+    
+        renderModule(
+          activeModuleId,
+          result.videos || []
+        );
+    
       } catch (error) {
-        alert(error.message);
-        renderDashboard();
+    
+        console.error(
+          'Gagal membuka modul:',
+          error
+        );
+    
+        alert(
+          error.message ||
+          'Modul tidak dapat dibuka.'
+        );
       }
     }
 
@@ -386,8 +413,15 @@
 
     function renderModule(moduleId, videos) {
       destroyYouTubePlayers();
-      activeModuleId = moduleId;
-      activeVideos = videos;
+      activeModuleId =
+        String(moduleId || '').trim();
+    
+      activeVideos =
+        videos || [];
+
+      activeVideos.forEach(video => {
+        video._moduleId = activeModuleId;
+      });
       // Server/Spreadsheet menjadi sumber status resmi.
       // Progress lokal yang tersisa hanya dipakai untuk sesi aktif.
      
@@ -1350,10 +1384,44 @@
       }
     }
     
-    
     async function finishVideo(video) {
-
-      const videoId = video.video_id;
+      const videoId = String(video?.video_id || '').trim();
+    
+      const moduleId = String(
+        video?._moduleId ||
+        activeModuleId ||
+        ''
+      ).trim();
+    
+      console.log('FINISH VIDEO:', {
+        moduleId,
+        videoId,
+        activeModuleId,
+        video
+      });
+    
+      if (!moduleId) {
+        console.error('MODULE ID KOSONG', {
+          activeModuleId,
+          video
+        });
+    
+        alert(
+          'ID modul tidak ditemukan. Silakan buka kembali modul.'
+        );
+    
+        return;
+      }
+    
+      if (!videoId) {
+        console.error('VIDEO ID KOSONG', video);
+    
+        alert(
+          'ID video tidak ditemukan.'
+        );
+    
+        return;
+      }
     
       if (completionLocks[videoId]) {
         return;
@@ -1364,62 +1432,52 @@
       try {
     
         /*
-         * Tandai selesai di server.
+         * Tandai video selesai di server.
          */
-        await api(
-          'completeVideo',
-          {
-            token: sessionToken,
-            module_id: activeModuleId,
-            video_id: videoId
-          }
-        );
+        await api('completeVideo', {
+          token: sessionToken,
+          moduleId: moduleId,
+          videoId: videoId
+        });
     
     
         /*
-         * Update status di memory.
+         * Update status video di memory.
          */
         const completedIndex =
           activeVideos.findIndex(
             item =>
-              item.video_id === videoId
+              String(item.video_id) === videoId
           );
     
         if (completedIndex !== -1) {
-    
-          activeVideos[
-            completedIndex
-          ].selesai = true;
+          activeVideos[completedIndex].selesai = true;
+          activeVideos[completedIndex]._moduleId = moduleId;
         }
     
     
         /*
-         * Cek quiz.
+         * Cek apakah video memiliki quiz.
          */
-        const quizResult =
-          await api(
-            'quiz',
-            {
-              token: sessionToken,
-              module_id: activeModuleId,
-              video_id: videoId
-            }
-          );
-    
+        const quizResult = await api('quiz', {
+          token: sessionToken,
+          moduleId: moduleId,
+          videoId: videoId
+        });
     
         const questions =
           quizResult?.questions || [];
     
     
         /*
-         * Ada quiz → tampilkan quiz.
+         * Jika ada quiz → tampilkan quiz.
          */
         if (questions.length > 0) {
     
           destroyYouTubePlayers();
     
           renderQuiz(
-            activeModuleId,
+            moduleId,
             videoId,
             questions
           );
@@ -1429,16 +1487,14 @@
     
     
         /*
-         * Tidak ada quiz.
-         * Jangan request ulang ke backend.
-         *
-         * Langsung render data yang sudah diperbarui
-         * di browser.
+         * Jika tidak ada quiz,
+         * langsung tampilkan modul dengan
+         * video berikutnya terbuka.
          */
         destroyYouTubePlayers();
     
         renderModule(
-          activeModuleId,
+          moduleId,
           activeVideos
         );
     
@@ -1457,9 +1513,9 @@
       } finally {
     
         delete completionLocks[videoId];
+    
       }
     }
-    
     
     async function startWatching(videoId) {
     
