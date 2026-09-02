@@ -450,9 +450,34 @@
                   ↻ Tonton Kembali
                 </button>
               `
-              : `
-                <div id="watch-status-${escapeHtml(video.video_id)}"></div>
-              `;
+              : video._videoSelesai
+                ? `
+                  <div class="video-completed-status">
+                    ✓ Video telah selesai ditonton
+                  </div>
+            
+                  <button
+                    type="button"
+                    onclick="openQuiz(
+                      '${escapeHtml(activeModuleId)}',
+                      '${escapeHtml(video.video_id)}'
+                    )">
+                    Lanjut ke Quiz
+                  </button>
+            
+                  <div
+                    style="
+                      margin-top:10px;
+                      font-size:13px;
+                      color:#64748b;
+                    ">
+                    Quiz belum diselesaikan. Selesaikan quiz untuk membuka
+                    video berikutnya.
+                  </div>
+                `
+                : `
+                  <div id="watch-status-${escapeHtml(video.video_id)}"></div>
+                `;
 
             return `
               <article class="module">
@@ -1401,25 +1426,12 @@
       });
     
       if (!moduleId) {
-        console.error('MODULE ID KOSONG', {
-          activeModuleId,
-          video
-        });
-    
-        alert(
-          'ID modul tidak ditemukan. Silakan buka kembali modul.'
-        );
-    
+        alert('ID modul tidak ditemukan.');
         return;
       }
     
       if (!videoId) {
-        console.error('VIDEO ID KOSONG', video);
-    
-        alert(
-          'ID video tidak ditemukan.'
-        );
-    
+        alert('ID video tidak ditemukan.');
         return;
       }
     
@@ -1430,31 +1442,6 @@
       completionLocks[videoId] = true;
     
       try {
-    
-        /*
-         * Tandai video selesai di server.
-         */
-        await api('completeVideo', {
-          token: sessionToken,
-          moduleId: moduleId,
-          videoId: videoId
-        });
-    
-    
-        /*
-         * Update status video di memory.
-         */
-        const completedIndex =
-          activeVideos.findIndex(
-            item =>
-              String(item.video_id) === videoId
-          );
-    
-        if (completedIndex !== -1) {
-          activeVideos[completedIndex].selesai = true;
-          activeVideos[completedIndex]._moduleId = moduleId;
-        }
-    
     
         /*
          * Cek apakah video memiliki quiz.
@@ -1470,16 +1457,40 @@
     
     
         /*
-         * Jika ada quiz → tampilkan quiz.
+         * =====================================================
+         * VIDEO SELESAI, TAPI BELUM DIANGGAP SELESAI SEPENUHNYA
+         * =====================================================
+         *
+         * Kalau ada quiz, kita hanya mencatat secara lokal
+         * bahwa videonya sudah ditonton.
+         *
+         * BELUM mengirim completeVideo ke server.
          */
         if (questions.length > 0) {
     
+          const completedIndex =
+            activeVideos.findIndex(
+              item =>
+                String(item.video_id) === videoId
+            );
+    
+          if (completedIndex !== -1) {
+            activeVideos[completedIndex]._videoSelesai = true;
+            activeVideos[completedIndex]._moduleId = moduleId;
+          }
+    
           destroyYouTubePlayers();
     
-          renderQuiz(
+          /*
+           * Kembali ke halaman modul.
+           *
+           * Di sini akan muncul:
+           * ✓ Video telah selesai
+           * [Lanjut ke Quiz]
+           */
+          renderModule(
             moduleId,
-            videoId,
-            questions
+            activeVideos
           );
     
           return;
@@ -1487,10 +1498,32 @@
     
     
         /*
-         * Jika tidak ada quiz,
-         * langsung tampilkan modul dengan
-         * video berikutnya terbuka.
+         * =====================================================
+         * JIKA VIDEO TIDAK MEMILIKI QUIZ
+         * =====================================================
+         *
+         * Baru langsung dianggap selesai.
          */
+        await api('completeVideo', {
+          token: sessionToken,
+          moduleId: moduleId,
+          videoId: videoId
+        });
+    
+    
+        const completedIndex =
+          activeVideos.findIndex(
+            item =>
+              String(item.video_id) === videoId
+          );
+    
+        if (completedIndex !== -1) {
+          activeVideos[completedIndex].selesai = true;
+          activeVideos[completedIndex]._videoSelesai = true;
+          activeVideos[completedIndex]._moduleId = moduleId;
+        }
+    
+    
         destroyYouTubePlayers();
     
         renderModule(
@@ -1507,7 +1540,7 @@
     
         alert(
           error.message ||
-          'Video selesai, tetapi status belum berhasil disimpan.'
+          'Video selesai, tetapi proses berikutnya gagal.'
         );
     
       } finally {
@@ -1891,6 +1924,23 @@
         });
 
         if (result.lulus) {
+        
+          /*
+           * Tandai video sebagai benar-benar selesai:
+           * video + quiz.
+           */
+          const completedIndex =
+            activeVideos.findIndex(
+              item =>
+                String(item.video_id) === String(videoId)
+            );
+        
+          if (completedIndex !== -1) {
+            activeVideos[completedIndex].selesai = true;
+            activeVideos[completedIndex]._videoSelesai = true;
+            activeVideos[completedIndex]._moduleId = moduleId;
+          }
+        
           openModule(moduleId);
           return;
         }
