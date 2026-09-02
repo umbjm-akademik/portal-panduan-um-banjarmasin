@@ -888,6 +888,7 @@
               fs: 1,
               iv_load_policy: 3,
               disablekb: 1,
+              modestbranding: 1,
               origin: window.location.origin
             },
     
@@ -1241,13 +1242,10 @@
     
     
     async function finishVideo(video) {
+
+      const videoId = video.video_id;
     
-      const videoId =
-        video.video_id;
-    
-      /*
-       * Cegah pemanggilan ganda.
-       */
+      // Cegah pemanggilan ganda
       if (completionLocks[videoId]) {
         return;
       }
@@ -1256,10 +1254,8 @@
     
       try {
     
-        /*
-         * Tandai selesai di backend.
-         */
-        const completionResult = await api(
+        // 1. Tandai video selesai di backend
+        await api(
           'completeVideo',
           {
             token: sessionToken,
@@ -1269,9 +1265,19 @@
         );
     
     
-        /*
-         * Setelah selesai, cek apakah video memiliki quiz.
-         */
+        // 2. UPDATE STATUS VIDEO DI MEMORY
+        //    agar frontend langsung mengetahui video sudah selesai
+        const completedIndex =
+          activeVideos.findIndex(
+            item => item.video_id === videoId
+          );
+    
+        if (completedIndex !== -1) {
+          activeVideos[completedIndex].selesai = true;
+        }
+    
+    
+        // 3. Cek apakah video memiliki quiz
         const quizResult =
           await api(
             'quiz',
@@ -1282,14 +1288,11 @@
             }
           );
     
-    
         const questions =
           quizResult?.questions || [];
     
     
-        /*
-         * Jika ada quiz → langsung buka quiz.
-         */
+        // 4. Kalau ada quiz → langsung buka quiz
         if (questions.length > 0) {
     
           destroyYouTubePlayers();
@@ -1304,14 +1307,14 @@
         }
     
     
-        /*
-         * Tidak ada quiz → kembali ke modul.
-         * Video berikutnya otomatis terbuka.
-         */
+        // 5. Kalau tidak ada quiz →
+        //    tampilkan kembali modul.
+        //    Tidak perlu request ulang ke backend.
         destroyYouTubePlayers();
     
-        await openModule(
-          activeModuleId
+        renderModule(
+          activeModuleId,
+          activeVideos
         );
     
       } catch (error) {
