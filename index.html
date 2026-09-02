@@ -451,8 +451,7 @@
             
             const terbuka =
               index === 0 ||
-              videoSebelumnya?.selesai === true ||
-              videoSebelumnya?._videoSelesai === true;
+              videos[index - 1].selesai === true;
 
             if (!terbuka) {
               return `
