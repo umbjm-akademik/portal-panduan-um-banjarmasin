@@ -80,32 +80,24 @@
     }
 
     function setupTanggalLahir() {
-      const input = document.getElementById('tanggalLahir');
+      const dateInput = document.getElementById('tanggalLahir');
+      const displayInput = document.getElementById('tanggalLahirDisplay');
     
-      if (!input) return;
+      if (!dateInput || !displayInput) return;
     
-      input.addEventListener('input', function () {
-        let value = this.value.replace(/\D/g, '');
+      displayInput.addEventListener('click', function () {
+        dateInput.showPicker();
+      });
     
-        if (value.length > 8) {
-          value = value.substring(0, 8);
+      dateInput.addEventListener('change', function () {
+        if (!this.value) {
+          displayInput.value = '';
+          return;
         }
     
-        if (value.length > 4) {
-          value =
-            value.substring(0, 2) +
-            '/' +
-            value.substring(2, 4) +
-            '/' +
-            value.substring(4);
-        } else if (value.length > 2) {
-          value =
-            value.substring(0, 2) +
-            '/' +
-            value.substring(2);
-        }
+        const [year, month, day] = this.value.split('-');
     
-        this.value = value;
+        displayInput.value = `${day}/${month}/${year}`;
       });
     }
 
@@ -133,18 +125,23 @@
 
               <label for="tanggalLahir">Tanggal Lahir</label>
 
+              <!-- Input yang terlihat oleh user -->
+              <input
+                id="tanggalLahirDisplay"
+                type="text"
+                placeholder="DD/MM/YYYY"
+                readonly
+              >
+              
+              <!-- Input asli untuk memunculkan datepicker -->
               <input
                 id="tanggalLahir"
-                type="text"
-                inputmode="numeric"
-                placeholder="DD/MM/YYYY"
-                maxlength="10"
-                autocomplete="bday"
-                required
+                type="date"
+                style="position:absolute; opacity:0; pointer-events:none;"
               >
               
               <small class="date-format-hint">
-                Format: DD/MM/YYYY
+                Pilih tanggal lahir
               </small>
 
               <button id="loginButton" type="submit">Masuk</button>
@@ -166,8 +163,7 @@
         try {
           const result = await api('login', {
             loginId: document.getElementById('loginId').value.trim(),
-            tanggalLahir: convertTanggalKeISO(
-              document.getElementById('tanggalLahir').value
+            tanggalLahir: document.getElementById('tanggalLahir').value
             )
           });
 
