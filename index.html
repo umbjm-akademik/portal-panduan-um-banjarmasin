@@ -2522,20 +2522,14 @@
         !input.files ||
         !input.files.length
       ) {
-        alert(
-          'Silakan pilih file terlebih dahulu.'
-        );
+        alert('Silakan pilih file terlebih dahulu.');
         return;
       }
     
-      const file =
-        input.files[0];
+      const file = input.files[0];
     
-      // Maksimal 1 MB
       if (file.size > 1024 * 1024) {
-        alert(
-          'Ukuran file maksimal 1 MB.'
-        );
+        alert('Ukuran file maksimal 1 MB.');
         input.value = '';
         return;
       }
@@ -2546,9 +2540,7 @@
         'application/pdf'
       ];
     
-      if (
-        !allowedTypes.includes(file.type)
-      ) {
+      if (!allowedTypes.includes(file.type)) {
         alert(
           'Format file harus JPG, JPEG, PNG, atau PDF.'
         );
@@ -2558,10 +2550,7 @@
     
       let namaDokumen = '';
     
-      if (
-        jenisDokumen ===
-        'Dokumen Lainnya'
-      ) {
+      if (jenisDokumen === 'Dokumen Lainnya') {
         const nameInput =
           document.getElementById(
             'otherDocumentName'
@@ -2571,36 +2560,34 @@
           nameInput?.value.trim() || '';
     
         if (!namaDokumen) {
-          alert(
-            'Silakan isi judul dokumen.'
-          );
+          alert('Silakan isi judul dokumen.');
           return;
         }
       }
     
-      try {
+      const uploadId =
+        Date.now().toString(36) +
+        '_' +
+        Math.random()
+          .toString(36)
+          .substring(2, 10);
     
-        showLoading(
-          'Membaca berkas...'
-        );
+      let iframe = null;
+      let form = null;
+    
+      try {
+        showLoading('Membaca berkas...');
     
         const fileData =
           await fileToBase64_(file);
     
-        const uploadId =
-          Date.now().toString(36) +
-          '_' +
-          Math.random()
-            .toString(36)
-            .substring(2, 10);
-    
         /*
-         * Buat iframe tersembunyi.
-         * Response dari Apps Script akan
-         * mengirim hasil kembali menggunakan
-         * window.parent.postMessage().
+         * =====================================================
+         * IFRAME TERSEMBUNYI
+         * =====================================================
          */
-        const iframe =
+    
+        iframe =
           document.createElement('iframe');
     
         iframe.name =
@@ -2612,76 +2599,80 @@
           iframe
         );
     
+    
+        /*
+         * =====================================================
+         * TUNGGU RESPONSE DARI APPS SCRIPT
+         * =====================================================
+         */
+    
         const resultPromise =
-          new Promise(
-            (resolve, reject) => {
+          new Promise((resolve, reject) => {
     
-              const timeout =
-                setTimeout(() => {
-    
-                  window.removeEventListener(
-                    'message',
-                    messageHandler
-                  );
-    
-                  reject(
-                    new Error(
-                      'Upload terlalu lama. Silakan coba lagi.'
-                    )
-                  );
-    
-                }, 120000);
-    
-    
-              function messageHandler(
-                event
-              ) {
-    
-                const data =
-                  event.data;
-    
-                if (
-                  !data ||
-                  data.type !==
-                    'PORTAL_UPLOAD_RESULT'
-                ) {
-                  return;
-                }
-    
-                if (
-                  data.uploadId &&
-                  data.uploadId !==
-                    uploadId
-                ) {
-                  return;
-                }
-    
-                clearTimeout(timeout);
+            const timeout =
+              setTimeout(() => {
     
                 window.removeEventListener(
                   'message',
                   messageHandler
                 );
     
-                resolve(data);
+                reject(
+                  new Error(
+                    'Upload terlalu lama. Silakan coba lagi.'
+                  )
+                );
+    
+              }, 120000);
+    
+    
+            function messageHandler(event) {
+    
+              const data =
+                event.data;
+    
+              if (
+                !data ||
+                data.type !==
+                  'PORTAL_UPLOAD_RESULT'
+              ) {
+                return;
               }
     
-              window.addEventListener(
+              if (
+                data.uploadId &&
+                data.uploadId !== uploadId
+              ) {
+                return;
+              }
+    
+              clearTimeout(timeout);
+    
+              window.removeEventListener(
                 'message',
                 messageHandler
               );
+    
+              resolve(data);
             }
-          );
+    
+            window.addEventListener(
+              'message',
+              messageHandler
+            );
+          });
     
     
         /*
-         * Buat form POST.
+         * =====================================================
+         * FORM POST
+         * =====================================================
          */
-        const form =
+    
+        form =
           document.createElement('form');
     
-        form.method =
-          'POST';
+        form.method = 'POST';
     
         form.action =
           PORTAL_CONFIG.API_URL;
@@ -2689,68 +2680,47 @@
         form.target =
           iframe.name;
     
-        form.style.display =
-          'none';
+        form.style.display = 'none';
     
     
         const fields = {
-          action:
-            'uploadDocument',
+          action: 'uploadDocument',
     
-          token:
-            sessionToken,
+          token: sessionToken,
     
-          uploadId:
-            uploadId,
+          uploadId: uploadId,
     
-          moduleId:
-            moduleId,
+          moduleId: moduleId,
     
-          jenisDokumen:
-            jenisDokumen,
+          jenisDokumen: jenisDokumen,
     
-          namaDokumen:
-            namaDokumen,
+          namaDokumen: namaDokumen,
     
-          fileName:
-            file.name,
+          fileName: file.name,
     
-          mimeType:
-            file.type,
+          mimeType: file.type,
     
-          fileData:
-            fileData
+          fileData: fileData
         };
     
     
         Object.entries(fields)
-          .forEach(
-            ([name, value]) => {
+          .forEach(([name, value]) => {
     
-              const hidden =
-                document.createElement(
-                  'input'
-                );
+            const hidden =
+              document.createElement('input');
     
-              hidden.type =
-                'hidden';
+            hidden.type = 'hidden';
     
-              hidden.name =
-                name;
+            hidden.name = name;
     
-              hidden.value =
-                value;
+            hidden.value = value;
     
-              form.appendChild(
-                hidden
-              );
-            }
-          );
+            form.appendChild(hidden);
+          });
     
     
-        document.body.appendChild(
-          form
-        );
+        document.body.appendChild(form);
     
     
         const loadingText =
@@ -2765,20 +2735,20 @@
     
     
         /*
-         * Kirim SATU request POST.
+         * =====================================================
+         * SATU KALI POST
+         * =====================================================
          */
+    
         form.submit();
     
     
+        /*
+         * Tunggu hasil dari doPost()
+         */
+    
         const response =
           await resultPromise;
-    
-    
-        /*
-         * Bersihkan form + iframe.
-         */
-        form.remove();
-        iframe.remove();
     
     
         if (!response.success) {
@@ -2790,13 +2760,13 @@
     
     
         const result =
-          response.data;
+          response.data || {};
     
     
         alert(
           `Berhasil mengunggah:\n${
             result.nama_file ||
-            'Berkas berhasil disimpan.'
+            file.name
           }`
         );
     
@@ -2824,6 +2794,16 @@
         await showModuleDocuments(
           moduleId
         );
+    
+      } finally {
+    
+        if (form) {
+          form.remove();
+        }
+    
+        if (iframe) {
+          iframe.remove();
+        }
       }
     }
     
