@@ -2153,33 +2153,24 @@
     }
 
     function fileToBase64_(file) {
-      return new Promise(
-        (resolve, reject) => {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
     
-          const reader =
-            new FileReader();
+        reader.onload = () => {
+          const result = reader.result;
     
-          reader.onload = () => {
+          // Ambil hanya bagian Base64, tanpa data:mime...
+          const base64 = result.split(',')[1];
     
-            const result =
-              String(reader.result || '');
+          resolve(base64);
+        };
     
-            const base64 =
-              result.split(',')[1];
+        reader.onerror = () => {
+          reject(new Error('Gagal membaca file.'));
+        };
     
-            resolve(base64);
-          };
-    
-          reader.onerror =
-            () => reject(
-              new Error(
-                'File gagal dibaca.'
-              )
-            );
-    
-          reader.readAsDataURL(file);
-        }
-      );
+        reader.readAsDataURL(file);
+      });
     }
     
     async function uploadDocument(
@@ -2517,39 +2508,21 @@
     }
 
     async function uploadModuleDocument(
+      moduleId,
       jenisDokumen,
-      inputId,
-      moduleId
+      namaDokumen,
+      input
     ) {
+      const file = input.files && input.files[0];
     
-      const input =
-        document.getElementById(inputId);
+      if (!file) return;
     
-      if (
-        !input ||
-        !input.files.length
-      ) {
-        alert(
-          'Silakan pilih file terlebih dahulu.'
-        );
+      // Maksimal 1 MB
+      if (file.size > 1024 * 1024) {
+        alert('Ukuran file maksimal 1 MB.');
+        input.value = '';
         return;
       }
-    
-    
-      const file =
-        input.files[0];
-    
-    
-      if (
-        file.size >
-        1024 * 1024
-      ) {
-        alert(
-          'Ukuran file maksimal 1 MB.'
-        );
-        return;
-      }
-    
     
       const allowedTypes = [
         'image/jpeg',
@@ -2557,103 +2530,94 @@
         'application/pdf'
       ];
     
-    
-      if (
-        !allowedTypes.includes(
-          file.type
-        )
-      ) {
-        alert(
-          'Format file harus JPG, JPEG, PNG, atau PDF.'
-        );
+      if (!allowedTypes.includes(file.type)) {
+        alert('Format file harus JPG, PNG, atau PDF.');
+        input.value = '';
         return;
       }
     
-    
-      let namaDokumen = '';
-    
-    
-      if (
-        jenisDokumen ===
-        'Dokumen Lainnya'
-      ) {
-    
-        const nameInput =
-          document.getElementById(
-            'otherDocumentName'
-          );
-    
-        namaDokumen =
-          nameInput?.value.trim() || '';
-    
-    
-        if (!namaDokumen) {
-          alert(
-            'Silakan isi judul dokumen.'
-          );
-          return;
-        }
-      }
-    
-    
       try {
+        // Baca file menjadi Base64
+        const fileData = await fileToBase64_(file);
     
-        showLoading(
-          'Mengunggah dokumen...'
+        const uploadId =
+          Date.now().toString(36) +
+          '_' +
+          Math.random().toString(36).substring(2, 10);
+    
+        // 25.000 karakter Base64 per request
+        const CHUNK_SIZE = 25000;
+    
+        const totalChunks = Math.ceil(
+          fileData.length / CHUNK_SIZE
         );
     
+        showLoading('Mengunggah berkas...');
     
-        const fileData =
-          await fileToBase64_(file);
-    
-    
-        const result =
-          await api(
-            'uploadDocument',
-            {
-              token: sessionToken,
-              jenisDokumen:
-                jenisDokumen,
-              namaDokumen:
-                namaDokumen,
-              fileName:
-                file.name,
-              mimeType:
-                file.type,
-              fileData:
-                fileData,
-              moduleId:
-                moduleId
-            }
+        // Kirim chunk secara bertahap
+        for (let i = 0; i < totalChunks; i++) {
+          const start = i * CHUNK_SIZE;
+          const end = Math.min(
+            start + CHUNK_SIZE,
+            fileData.length
           );
     
+          const chunk = fileData.substring(start, end);
+    
+          await api('uploadDocumentChunk', {
+            token,
+            uploadId,
+            chunkIndex: i,
+            totalChunks,
+            chunk
+          });
+    
+          const persen = Math.round(
+            ((i + 1) / totalChunks) * 100
+          );
+    
+          const loadingText =
+            document.querySelector('#loadingText');
+    
+          if (loadingText) {
+            loadingText.textContent =
+              `Mengunggah berkas... ${persen}%`;
+          }
+        }
+    
+        // Gabungkan seluruh chunk di server
+        const result = await api(
+          'finishDocumentUpload',
+          {
+            token,
+            uploadId,
+            totalChunks,
+            moduleId,
+            jenisDokumen,
+            namaDokumen,
+            fileName: file.name,
+            mimeType: file.type
+          }
+        );
     
         alert(
-          `Berhasil mengunggah:\n${result.nama_file}`
+          result.message ||
+          'Berkas berhasil diunggah.'
         );
     
+        input.value = '';
     
-        showModuleDocuments(
-          moduleId
-        );
+        await showModuleDocuments(moduleId);
     
-    
-      } catch (error) {
-    
-        console.error(
-          'Gagal mengunggah dokumen:',
-          error
-        );
+      } catch (err) {
+        console.error(err);
     
         alert(
-          error.message ||
-          'Dokumen gagal diunggah.'
+          err.message ||
+          'Gagal mengunggah berkas.'
         );
     
-    
-        showModuleDocuments(
-          moduleId
-        );
+        input.value = '';
       }
     }
     
