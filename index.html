@@ -2867,26 +2867,117 @@
         <main class="container">
           <section class="card">
             <div class="brand">
-              <h1>Finalisasi Modul</h1>
-              <p>Pastikan Anda sudah memahami seluruh panduan pada modul ini.</p>
+              <h1>Surat Pernyataan</h1>
+              <p>Finalisasi Modul</p>
             </div>
     
-            <form id="declarationForm">
-              <article class="module">
-                <p style="line-height:1.6;">
-                  Saya menyatakan telah mengikuti seluruh panduan dan memahami
-                  informasi pada modul ini.
-                </p>
+            <article class="declaration-paper">
+              <h2 style="text-align:center;margin-bottom:25px;">
+                SURAT PERNYATAAN
+              </h2>
     
-                <label style="font-weight:normal;display:flex;gap:10px;align-items:flex-start;">
-                  <input id="acceptDeclaration" type="checkbox"
-                    style="width:auto;margin-top:3px;">
-                  <span>Saya setuju dengan pernyataan di atas.</span>
+              <p style="text-align:justify;line-height:1.8;">
+                Saya menyatakan bahwa saya telah mengikuti dan menyelesaikan
+                seluruh materi panduan pada modul ini serta telah mengisi dan
+                memeriksa biodata saya dengan benar.
+              </p>
+    
+              <p style="text-align:justify;line-height:1.8;">
+                Saya menyatakan bahwa data yang saya masukkan telah disesuaikan
+                dengan dokumen sumber yang saya miliki, yaitu:
+              </p>
+    
+              <ol style="line-height:1.8;">
+                <li>Akta Kelahiran;</li>
+                <li>Kartu Tanda Penduduk (KTP);</li>
+                <li>Kartu Keluarga (KK);</li>
+                <li>Ijazah Terakhir;</li>
+                <li>Transkrip Nilai Terakhir; dan</li>
+                <li>dokumen pendukung lainnya apabila diperlukan.</li>
+              </ol>
+    
+              <p style="text-align:justify;line-height:1.8;">
+                Saya memahami bahwa kebenaran dan keakuratan data yang saya
+                masukkan menjadi tanggung jawab saya. Apabila di kemudian hari
+                terdapat ketidaksesuaian data akibat kesalahan pengisian atau
+                ketidaksesuaian dengan dokumen sumber, saya bersedia melakukan
+                perbaikan sesuai ketentuan yang berlaku.
+              </p>
+    
+              <p style="text-align:justify;line-height:1.8;">
+                Demikian surat pernyataan ini saya buat dengan sebenar-benarnya
+                untuk dapat digunakan sebagaimana mestinya.
+              </p>
+    
+              <div style="margin-top:35px;">
+                <label style="font-weight:bold;">
+                  Tanda Tangan
                 </label>
-              </article>
     
-              <button type="submit">Setujui dan Finalisasi</button>
-              <button class="logout" type="button" onclick="renderDashboard()">
+                <div style="
+                  border:1px solid #ccc;
+                  border-radius:8px;
+                  background:#fff;
+                  margin-top:8px;
+                  overflow:hidden;
+                ">
+                  <canvas
+                    id="signatureCanvas"
+                    width="500"
+                    height="220"
+                    style="
+                      display:block;
+                      width:100%;
+                      height:220px;
+                      touch-action:none;
+                      cursor:crosshair;
+                    ">
+                  </canvas>
+                </div>
+    
+                <button
+                  type="button"
+                  class="logout"
+                  onclick="clearSignature()"
+                  style="margin-top:8px;">
+                  Hapus Tanda Tangan
+                </button>
+    
+                <p style="
+                  font-size:12px;
+                  color:#777;
+                  margin-top:6px;">
+                  Silakan tanda tangan langsung pada kotak di atas.
+                </p>
+              </div>
+    
+              <label style="
+                font-weight:normal;
+                display:flex;
+                gap:10px;
+                align-items:flex-start;
+                margin-top:25px;">
+                <input
+                  id="acceptDeclaration"
+                  type="checkbox"
+                  style="width:auto;margin-top:4px;">
+    
+                <span>
+                  Saya menyetujui dan menyatakan bahwa seluruh data dan
+                  pernyataan di atas benar.
+                </span>
+              </label>
+            </article>
+    
+            <form id="declarationForm">
+              <button type="submit">
+                Setujui dan Finalisasi
+              </button>
+    
+              <button
+                class="logout"
+                type="button"
+                onclick="renderDashboard()">
                 Kembali
               </button>
     
@@ -2896,20 +2987,112 @@
         </main>
       `;
     
-      document.getElementById('declarationForm').addEventListener('submit', event => {
-        submitDeclaration(event, moduleId);
-      });
+      initSignatureCanvas();
+    
+      document
+        .getElementById('declarationForm')
+        .addEventListener('submit', event => {
+          submitDeclaration(event, moduleId);
+        });
+    }
+
+    let signatureCanvas = null;
+    let signatureCtx = null;
+    let signatureDrawing = false;
+    
+    function initSignatureCanvas() {
+      signatureCanvas = document.getElementById('signatureCanvas');
+      signatureCtx = signatureCanvas.getContext('2d');
+    
+      signatureCtx.lineWidth = 2;
+      signatureCtx.lineCap = 'round';
+      signatureCtx.lineJoin = 'round';
+      signatureCtx.strokeStyle = '#000';
+    
+      signatureCanvas.addEventListener('pointerdown', startSignature);
+      signatureCanvas.addEventListener('pointermove', drawSignature);
+      signatureCanvas.addEventListener('pointerup', endSignature);
+      signatureCanvas.addEventListener('pointerleave', endSignature);
+    }
+    
+    function getSignaturePosition(event) {
+      const rect = signatureCanvas.getBoundingClientRect();
+    
+      return {
+        x: (event.clientX - rect.left) *
+           (signatureCanvas.width / rect.width),
+    
+        y: (event.clientY - rect.top) *
+           (signatureCanvas.height / rect.height)
+      };
+    }
+    
+    function startSignature(event) {
+      signatureDrawing = true;
+    
+      const pos = getSignaturePosition(event);
+    
+      signatureCtx.beginPath();
+      signatureCtx.moveTo(pos.x, pos.y);
+    
+      signatureCanvas.setPointerCapture(event.pointerId);
+    }
+    
+    function drawSignature(event) {
+      if (!signatureDrawing) return;
+    
+      const pos = getSignaturePosition(event);
+    
+      signatureCtx.lineTo(pos.x, pos.y);
+      signatureCtx.stroke();
+    }
+    
+    function endSignature() {
+      signatureDrawing = false;
+    }
+    
+    function clearSignature() {
+      if (!signatureCtx) return;
+    
+      signatureCtx.clearRect(
+        0,
+        0,
+        signatureCanvas.width,
+        signatureCanvas.height
+      );
     }
     
     async function submitDeclaration(event, moduleId) {
       event.preventDefault();
     
-      const accepted = document.getElementById('acceptDeclaration').checked;
-      const message = document.getElementById('declarationMessage');
+      const accepted =
+        document.getElementById('acceptDeclaration').checked;
+    
+      const message =
+        document.getElementById('declarationMessage');
     
       if (!accepted) {
         message.className = 'message error';
-        message.textContent = 'Centang persetujuan pernyataan terlebih dahulu.';
+        message.textContent =
+          'Centang persetujuan pernyataan terlebih dahulu.';
+        return;
+      }
+    
+      if (!signatureCanvas) {
+        message.className = 'message error';
+        message.textContent =
+          'Tanda tangan belum tersedia.';
+        return;
+      }
+    
+      const signatureData =
+        signatureCanvas.toDataURL('image/png');
+    
+      // Canvas kosong biasanya menghasilkan gambar yang sangat kecil.
+      if (signatureData.length < 1000) {
+        message.className = 'message error';
+        message.textContent =
+          'Silakan bubuhkan tanda tangan terlebih dahulu.';
         return;
       }
     
@@ -2919,10 +3102,12 @@
         await api('declare', {
           token: sessionToken,
           moduleId: moduleId,
-          accepted: true
+          accepted: true,
+          signature: signatureData
         });
     
         renderDashboard();
+    
       } catch (error) {
         alert(error.message);
         showDeclaration(moduleId);
