@@ -2565,219 +2565,135 @@
         }
       }
     
-      const uploadId =
-        Date.now().toString(36) +
-        '_' +
-        Math.random()
-          .toString(36)
-          .substring(2, 10);
-    
-      let iframe = null;
-      let form = null;
-    
       try {
+    
         showLoading('Membaca berkas...');
     
         const fileData =
           await fileToBase64_(file);
     
+        showLoading('Mengunggah berkas...');
+    
         /*
          * =====================================================
-         * IFRAME TERSEMBUNYI
+         * KIRIM LANGSUNG KE doPost()
          * =====================================================
          */
     
-        iframe =
-          document.createElement('iframe');
+        await fetch(
+          PORTAL_CONFIG.API_URL,
+          {
+            method: 'POST',
+            mode: 'no-cors',
     
-        iframe.name =
-          `uploadFrame_${uploadId}`;
+            headers: {
+              'Content-Type':
+                'text/plain;charset=UTF-8'
+            },
     
-        iframe.style.display = 'none';
+            body: JSON.stringify({
+              action: 'uploadDocument',
     
-        document.body.appendChild(
-          iframe
+              token: sessionToken,
+    
+              moduleId: moduleId,
+    
+              jenisDokumen:
+                jenisDokumen,
+    
+              namaDokumen:
+                namaDokumen,
+    
+              fileName:
+                file.name,
+    
+              mimeType:
+                file.type,
+    
+              fileData:
+                fileData
+            })
+          }
         );
     
     
         /*
          * =====================================================
-         * TUNGGU RESPONSE DARI APPS SCRIPT
+         * TUNGGU SEBENTAR AGAR APPS SCRIPT SELESAI
          * =====================================================
          */
     
-        const resultPromise =
-          new Promise((resolve, reject) => {
+        showLoading(
+          'Memproses berkas di Google Drive...'
+        );
     
-            const timeout =
-              setTimeout(() => {
-    
-                window.removeEventListener(
-                  'message',
-                  messageHandler
-                );
-    
-                reject(
-                  new Error(
-                    'Upload terlalu lama. Silakan coba lagi.'
-                  )
-                );
-    
-              }, 120000);
-    
-    
-            function messageHandler(event) {
-    
-              const data =
-                event.data;
-    
-              if (
-                !data ||
-                data.type !==
-                  'PORTAL_UPLOAD_RESULT'
-              ) {
-                return;
-              }
-    
-              if (
-                data.uploadId &&
-                data.uploadId !== uploadId
-              ) {
-                return;
-              }
-    
-              clearTimeout(timeout);
-    
-              window.removeEventListener(
-                'message',
-                messageHandler
-              );
-    
-              resolve(data);
-            }
-    
-            window.addEventListener(
-              'message',
-              messageHandler
-            );
-          });
+        await new Promise(
+          resolve =>
+            setTimeout(resolve, 3000)
+        );
     
     
         /*
          * =====================================================
-         * FORM POST
+         * CEK ULANG DATA DOKUMEN
          * =====================================================
          */
-    
-        form =
-          document.createElement('form');
-    
-        form.method = 'POST';
-    
-        form.action =
-          PORTAL_CONFIG.API_URL;
-    
-        form.target =
-          iframe.name;
-    
-        form.style.display = 'none';
-    
-    
-        const fields = {
-          action: 'uploadDocument',
-    
-          token: sessionToken,
-    
-          uploadId: uploadId,
-    
-          moduleId: moduleId,
-    
-          jenisDokumen: jenisDokumen,
-    
-          namaDokumen: namaDokumen,
-    
-          fileName: file.name,
-    
-          mimeType: file.type,
-    
-          fileData: fileData
-        };
-    
-    
-        Object.entries(fields)
-          .forEach(([name, value]) => {
-    
-            const hidden =
-              document.createElement('input');
-    
-            hidden.type = 'hidden';
-    
-            hidden.name = name;
-    
-            hidden.value = value;
-    
-            form.appendChild(hidden);
-          });
-    
-    
-        document.body.appendChild(form);
-    
-    
-        const loadingText =
-          document.getElementById(
-            'loadingText'
-          );
-    
-        if (loadingText) {
-          loadingText.textContent =
-            'Mengunggah berkas...';
-        }
-    
-    
-        /*
-         * =====================================================
-         * SATU KALI POST
-         * =====================================================
-         */
-    
-        form.submit();
-    
-    
-        /*
-         * Tunggu hasil dari doPost()
-         */
-    
-        const response =
-          await resultPromise;
-    
-    
-        if (!response.success) {
-          throw new Error(
-            response.message ||
-            'Gagal mengunggah dokumen.'
-          );
-        }
-    
     
         const result =
-          response.data || {};
+          await api(
+            'documents',
+            {
+              token: sessionToken
+            }
+          );
     
+        const documents =
+          result.documents || [];
+    
+    
+        /*
+         * Cari dokumen yang baru saja diupload.
+         */
+    
+        const uploaded =
+          documents.find(doc =>
+            String(
+              doc.jenis_dokumen || ''
+            ) ===
+            String(jenisDokumen) &&
+            String(
+              doc.module_id || moduleId
+            ) ===
+            String(moduleId)
+          );
+    
+    
+        if (!uploaded) {
+    
+          throw new Error(
+            'Upload belum tercatat di server. Silakan coba lagi.'
+          );
+        }
+    
+    
+        /*
+         * =====================================================
+         * BERHASIL
+         * =====================================================
+         */
     
         alert(
           `Berhasil mengunggah:\n${
-            result.nama_file ||
+            uploaded.nama_file ||
             file.name
           }`
         );
     
-    
         input.value = '';
-    
     
         await showModuleDocuments(
           moduleId
         );
-    
     
       } catch (error) {
     
@@ -2794,16 +2710,6 @@
         await showModuleDocuments(
           moduleId
         );
-    
-      } finally {
-    
-        if (form) {
-          form.remove();
-        }
-    
-        if (iframe) {
-          iframe.remove();
-        }
       }
     }
     
