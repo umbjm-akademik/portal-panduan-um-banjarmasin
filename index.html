@@ -63,7 +63,7 @@
           <section class="card">
             <div class="loading">
               <div class="spinner"></div>
-              <span id="loadingText">${escapeHtml(message)}</span>
+              <span id="loadingText">${escapeHtml(message || 'Memuat...')}</span>
             </div>
           </section>
         </main>
@@ -2508,16 +2508,30 @@
     }
 
     async function uploadModuleDocument(
-      moduleId,
       jenisDokumen,
-      namaDokumen,
-      input
+      inputId,
+      moduleId
     ) {
-      const file = input.files && input.files[0];
+      console.log('UPLOAD DOCUMENT START', {
+        jenisDokumen,
+        inputId,
+        moduleId
+      });
     
-      if (!file) return;
+      const input = document.getElementById(inputId);
     
-      // Maksimal 1 MB
+      if (!input) {
+        alert('Input file tidak ditemukan.');
+        return;
+      }
+    
+      if (!input.files || !input.files.length) {
+        alert('Silakan pilih file terlebih dahulu.');
+        return;
+      }
+    
+      const file = input.files[0];
+    
       if (file.size > 1024 * 1024) {
         alert('Ukuran file maksimal 1 MB.');
         input.value = '';
@@ -2531,93 +2545,159 @@
       ];
     
       if (!allowedTypes.includes(file.type)) {
-        alert('Format file harus JPG, PNG, atau PDF.');
+        alert('Format file harus JPG, JPEG, PNG, atau PDF.');
         input.value = '';
         return;
       }
     
+      let namaDokumen = '';
+    
+      if (jenisDokumen === 'Dokumen Lainnya') {
+        const nameInput =
+          document.getElementById('otherDocumentName');
+    
+        namaDokumen =
+          nameInput?.value.trim() || '';
+    
+        if (!namaDokumen) {
+          alert('Silakan isi judul dokumen.');
+          return;
+        }
+      }
+    
       try {
-        // Baca file menjadi Base64
-        const fileData = await fileToBase64_(file);
+        showLoading('Membaca berkas...');
+    
+        const fileData =
+          await fileToBase64_(file);
+    
+        console.log('Base64 siap:', fileData.length);
+    
+        const CHUNK_SIZE = 25000;
+    
+        const totalChunks =
+          Math.ceil(
+            fileData.length / CHUNK_SIZE
+          );
     
         const uploadId =
           Date.now().toString(36) +
           '_' +
-          Math.random().toString(36).substring(2, 10);
+          Math.random()
+            .toString(36)
+            .substring(2, 10);
     
-        // 25.000 karakter Base64 per request
-        const CHUNK_SIZE = 25000;
+        console.log('UPLOAD INFO', {
+          uploadId,
+          totalChunks,
+          fileSize: file.size
+        });
     
-        const totalChunks = Math.ceil(
-          fileData.length / CHUNK_SIZE
-        );
+        for (
+          let i = 0;
+          i < totalChunks;
+          i++
+        ) {
+          const start =
+            i * CHUNK_SIZE;
     
-        showLoading('Mengunggah berkas...');
+          const end =
+            Math.min(
+              start + CHUNK_SIZE,
+              fileData.length
+            );
     
-        // Kirim chunk secara bertahap
-        for (let i = 0; i < totalChunks; i++) {
-          const start = i * CHUNK_SIZE;
-          const end = Math.min(
-            start + CHUNK_SIZE,
-            fileData.length
-          );
+          const chunk =
+            fileData.substring(
+              start,
+              end
+            );
     
-          const chunk = fileData.substring(start, end);
-    
-          await api('uploadDocumentChunk', {
-            token,
-            uploadId,
-            chunkIndex: i,
-            totalChunks,
-            chunk
-          });
-    
-          const persen = Math.round(
-            ((i + 1) / totalChunks) * 100
-          );
+          const persen =
+            Math.round(
+              ((i + 1) / totalChunks) * 100
+            );
     
           const loadingText =
-            document.querySelector('#loadingText');
+            document.getElementById(
+              'loadingText'
+            );
     
           if (loadingText) {
             loadingText.textContent =
               `Mengunggah berkas... ${persen}%`;
           }
+    
+          console.log(
+            `Upload chunk ${i + 1}/${totalChunks}`
+          );
+    
+          await api(
+            'uploadDocumentChunk',
+            {
+              token: sessionToken,
+              uploadId: uploadId,
+              chunkIndex: i,
+              totalChunks: totalChunks,
+              chunk: chunk
+            }
+          );
         }
     
-        // Gabungkan seluruh chunk di server
-        const result = await api(
-          'finishDocumentUpload',
-          {
-            token,
-            uploadId,
-            totalChunks,
-            moduleId,
-            jenisDokumen,
-            namaDokumen,
-            fileName: file.name,
-            mimeType: file.type
-          }
+        const loadingText =
+          document.getElementById(
+            'loadingText'
+          );
+    
+        if (loadingText) {
+          loadingText.textContent =
+            'Menyimpan berkas ke Google Drive...';
+        }
+    
+        const result =
+          await api(
+            'finishDocumentUpload',
+            {
+              token: sessionToken,
+              uploadId: uploadId,
+              totalChunks: totalChunks,
+              moduleId: moduleId,
+              jenisDokumen: jenisDokumen,
+              namaDokumen: namaDokumen,
+              fileName: file.name,
+              mimeType: file.type
+            }
+          );
+    
+        console.log(
+          'UPLOAD BERHASIL',
+          result
         );
     
         alert(
-          result.message ||
-          'Berkas berhasil diunggah.'
+          `Berhasil mengunggah:\n${result.nama_file}`
         );
     
         input.value = '';
     
-        await showModuleDocuments(moduleId);
-    
-      } catch (err) {
-        console.error(err);
-    
-        alert(
-          err.message ||
-          'Gagal mengunggah berkas.'
+        await showModuleDocuments(
+          moduleId
         );
     
-        input.value = '';
+      } catch (error) {
+        console.error(
+          'Gagal mengunggah dokumen:',
+          error
+        );
+    
+        alert(
+          error.message ||
+          'Dokumen gagal diunggah.'
+        );
+    
+        await showModuleDocuments(
+          moduleId
+        );
       }
     }
     
