@@ -2217,7 +2217,9 @@
           fileData: fileData
         });
     
-        alert(`Berhasil mengunggah:\n${result.nama_file}`);
+        alert(
+          `Berhasil mengunggah:\n${result.nama_file || 'Berkas berhasil disimpan.'}`
+        );
     
         renderDashboard();
     
@@ -2573,7 +2575,7 @@
     
         console.log('Base64 siap:', fileData.length);
     
-        const CHUNK_SIZE = 8000;
+        const CHUNK_SIZE = 25000;
     
         const totalChunks =
           Math.ceil(
@@ -2675,7 +2677,7 @@
         );
     
         alert(
-          `Berhasil mengunggah:\n${result.nama_file}`
+          `Berhasil mengunggah:\n${result.nama_file || 'Berkas berhasil disimpan.'}`
         );
     
         input.value = '';
