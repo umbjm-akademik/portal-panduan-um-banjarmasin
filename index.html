@@ -41,6 +41,7 @@
     let currentUser = JSON.parse(localStorage.getItem('portalUser') || 'null');
     let sessionToken = localStorage.getItem('portalToken');
     let activeModuleId = null;
+    let activeModuleName = '';
     let activeVideos = [];
     let youtubePlayers = {};
     let watchStates = {};
@@ -385,16 +386,6 @@
           'Modul tidak dapat dibuka.'
         );
       }
-    }
-
-    function watchAgain(videoId) {
-      const player =
-        youtubePlayers[videoId];
-    
-      if (!player) return;
-    
-      player.seekTo(0, true);
-      player.playVideo();
     }
 
     function renderModule(moduleId, videos) {
