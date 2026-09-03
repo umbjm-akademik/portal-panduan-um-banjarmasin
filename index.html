@@ -2657,16 +2657,11 @@
     
         const uploaded =
           documents.find(doc =>
-            String(
-              doc.jenis_dokumen || ''
-            ) ===
-            String(jenisDokumen) &&
-            String(
-              doc.module_id || moduleId
-            ) ===
-            String(moduleId)
+            String(doc.jenis_dokumen || '') ===
+              String(jenisDokumen) &&
+            String(doc.module_id || '') ===
+              String(moduleId)
           );
-    
     
         if (!uploaded) {
     
