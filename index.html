@@ -2025,13 +2025,22 @@
         });
 
         if (result.lulus) {
-        
+
+          /*
+           * Quiz berhasil.
+           * Hapus state lokal video karena
+           * video + quiz sudah benar-benar selesai.
+           */
           try {
             localStorage.removeItem(
               getWatchKey(videoId)
             );
           } catch (error) {}
         
+        
+          /*
+           * Update state lokal agar langsung konsisten.
+           */
           const completedIndex =
             activeVideos.findIndex(
               item =>
@@ -2050,7 +2059,24 @@
             ]._videoSelesai = true;
           }
         
-          openModule(moduleId);
+        
+          /*
+           * Tampilkan loading supaya mahasiswa
+           * tahu sistem sedang memproses modul.
+           */
+          showLoading(
+            'Quiz benar. Memeriksa penyelesaian modul...'
+          );
+        
+        
+          /*
+           * Kembali ke Dashboard.
+           *
+           * Dashboard akan mengambil ulang data
+           * progress dari server dan mendeteksi
+           * apakah seluruh video modul sudah selesai.
+           */
+          await renderDashboard();
         
           return;
         }
