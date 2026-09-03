@@ -2861,55 +2861,71 @@
     
       return value;
     }
+
+    async function showDeclaration(moduleId) {
+      activeModuleId = String(moduleId || '').trim();
     
-    function showDeclaration(moduleId) {
-      app.innerHTML = `
-        <main class="container">
-          <section class="card">
-            <div class="brand">
-              <h1>Surat Pernyataan</h1>
-              <p>Finalisasi Modul</p>
-            </div>
+      if (!activeModuleId) {
+        alert('ID modul tidak ditemukan.');
+        return;
+      }
     
-            <article class="declaration-paper">
-              <h2 style="text-align:center;margin-bottom:25px;">
-                SURAT PERNYATAAN
-              </h2>
+      showLoading('Menyiapkan surat pernyataan...');
     
-              <p style="text-align:justify;line-height:1.8;">
-                Saya menyatakan bahwa saya telah mengikuti dan menyelesaikan
-                seluruh materi panduan pada modul ini serta telah mengisi dan
-                memeriksa biodata saya dengan benar.
-              </p>
+      try {
+        const result = await api('declarationPreview', {
+          token: sessionToken,
+          moduleId: activeModuleId
+        });
     
-              <p style="text-align:justify;line-height:1.8;">
-                Saya menyatakan bahwa data yang saya masukkan telah disesuaikan
-                dengan dokumen sumber yang saya miliki, yaitu:
-              </p>
+        const previewUrl = result.preview_url || '';
     
-              <ol style="line-height:1.8;">
-                <li>Akta Kelahiran;</li>
-                <li>Kartu Tanda Penduduk (KTP);</li>
-                <li>Kartu Keluarga (KK);</li>
-                <li>Ijazah Terakhir;</li>
-                <li>Transkrip Nilai Terakhir; dan</li>
-                <li>dokumen pendukung lainnya apabila diperlukan.</li>
-              </ol>
+        if (!previewUrl) {
+          throw new Error('Preview surat pernyataan tidak tersedia.');
+        }
     
-              <p style="text-align:justify;line-height:1.8;">
-                Saya memahami bahwa kebenaran dan keakuratan data yang saya
-                masukkan menjadi tanggung jawab saya. Apabila di kemudian hari
-                terdapat ketidaksesuaian data akibat kesalahan pengisian atau
-                ketidaksesuaian dengan dokumen sumber, saya bersedia melakukan
-                perbaikan sesuai ketentuan yang berlaku.
-              </p>
+        app.innerHTML = `
+          <main class="container">
+            <section class="card">
     
-              <p style="text-align:justify;line-height:1.8;">
-                Demikian surat pernyataan ini saya buat dengan sebenar-benarnya
-                untuk dapat digunakan sebagaimana mestinya.
-              </p>
+              <div class="brand">
+                <h1>Surat Pernyataan</h1>
+                <p>Periksa surat pernyataan sebelum melakukan finalisasi.</p>
+              </div>
     
-              <div style="margin-top:35px;">
+              <div class="module">
+                <div style="
+                  width:100%;
+                  height:70vh;
+                  min-height:500px;
+                  border:1px solid #e2e8f0;
+                  border-radius:10px;
+                  overflow:hidden;
+                  background:#f8fafc;
+                ">
+                  <iframe
+                    src="${escapeHtml(previewUrl)}"
+                    style="
+                      width:100%;
+                      height:100%;
+                      border:0;
+                    "
+                    title="Preview Surat Pernyataan">
+                  </iframe>
+                </div>
+    
+                <p style="
+                  font-size:13px;
+                  color:#64748b;
+                  margin-top:10px;
+                ">
+                  Pastikan data pada surat pernyataan sudah sesuai sebelum
+                  melakukan finalisasi.
+                </p>
+              </div>
+    
+              <div class="module">
+    
                 <label style="font-weight:bold;">
                   Tanda Tangan
                 </label>
@@ -2946,56 +2962,77 @@
                 <p style="
                   font-size:12px;
                   color:#777;
-                  margin-top:6px;">
-                  Silakan tanda tangan langsung pada kotak di atas.
+                  margin-top:6px;
+                ">
+                  Bubuhkan tanda tangan langsung pada kotak di atas.
                 </p>
+    
               </div>
     
-              <label style="
-                font-weight:normal;
-                display:flex;
-                gap:10px;
-                align-items:flex-start;
-                margin-top:25px;">
-                <input
-                  id="acceptDeclaration"
-                  type="checkbox"
-                  style="width:auto;margin-top:4px;">
+              <form id="declarationForm">
     
-                <span>
-                  Saya menyetujui dan menyatakan bahwa seluruh data dan
-                  pernyataan di atas benar.
-                </span>
-              </label>
-            </article>
+                <label style="
+                  font-weight:normal;
+                  display:flex;
+                  gap:10px;
+                  align-items:flex-start;
+                  margin-top:20px;
+                ">
+                  <input
+                    id="acceptDeclaration"
+                    type="checkbox"
+                    style="width:auto;margin-top:4px;"
+                  >
     
-            <form id="declarationForm">
-              <button type="submit">
-                Setujui dan Finalisasi
-              </button>
+                  <span>
+                    Saya menyetujui dan menyatakan bahwa data yang saya masukkan
+                    telah diperiksa dan benar.
+                  </span>
+                </label>
     
-              <button
-                class="logout"
-                type="button"
-                onclick="renderDashboard()">
-                Kembali
-              </button>
+                <div id="declarationMessage" class="message"></div>
     
-              <div id="declarationMessage" class="message"></div>
-            </form>
-          </section>
-        </main>
-      `;
+                <button type="submit">
+                  Setujui dan Finalisasi
+                </button>
     
-      initSignatureCanvas();
+                <button
+                  class="logout"
+                  type="button"
+                  onclick="showModuleDocuments('${escapeHtml(activeModuleId)}')">
+                  Kembali
+                </button>
     
-      document
-        .getElementById('declarationForm')
-        .addEventListener('submit', event => {
-          submitDeclaration(event, moduleId);
-        });
+              </form>
+    
+            </section>
+          </main>
+        `;
+    
+        initSignatureCanvas();
+    
+        document
+          .getElementById('declarationForm')
+          .addEventListener('submit', event => {
+            submitDeclaration(event, activeModuleId);
+          });
+    
+      } catch (error) {
+    
+        console.error(
+          'Gagal menampilkan surat pernyataan:',
+          error
+        );
+    
+        alert(
+          error.message ||
+          'Surat pernyataan tidak dapat ditampilkan.'
+        );
+    
+        await showModuleDocuments(activeModuleId);
+      }
     }
-
+    
     let signatureCanvas = null;
     let signatureCtx = null;
     let signatureDrawing = false;
@@ -3061,12 +3098,12 @@
         signatureCanvas.height
       );
     }
-    
+
     async function submitDeclaration(event, moduleId) {
       event.preventDefault();
     
       const accepted =
-        document.getElementById('acceptDeclaration').checked;
+        document.getElementById('acceptDeclaration')?.checked;
     
       const message =
         document.getElementById('declarationMessage');
@@ -3074,7 +3111,7 @@
       if (!accepted) {
         message.className = 'message error';
         message.textContent =
-          'Centang persetujuan pernyataan terlebih dahulu.';
+          'Centang persetujuan terlebih dahulu.';
         return;
       }
     
@@ -3088,7 +3125,6 @@
       const signatureData =
         signatureCanvas.toDataURL('image/png');
     
-      // Canvas kosong biasanya menghasilkan gambar yang sangat kecil.
       if (signatureData.length < 1000) {
         message.className = 'message error';
         message.textContent =
@@ -3096,24 +3132,145 @@
         return;
       }
     
-      showLoading('Menyimpan finalisasi...');
+      showLoading('Menyimpan tanda tangan...');
     
       try {
-        await api('declare', {
-          token: sessionToken,
-          moduleId: moduleId,
-          accepted: true,
-          signature: signatureData
-        });
     
-        renderDashboard();
+        /*
+         * =====================================================
+         * 1. SIMPAN TANDA TANGAN KE SERVER
+         * =====================================================
+         */
+    
+        await fetch(
+          PORTAL_CONFIG.API_URL,
+          {
+            method: 'POST',
+            mode: 'no-cors',
+    
+            headers: {
+              'Content-Type':
+                'text/plain;charset=UTF-8'
+            },
+    
+            body: JSON.stringify({
+              action: 'saveSignature',
+              token: sessionToken,
+              moduleId: moduleId,
+              signature: signatureData
+            })
+          }
+        );
+    
+    
+        /*
+         * =====================================================
+         * 2. FINALISASI SURAT
+         * =====================================================
+         */
+    
+        showLoading(
+          'Membuat surat pernyataan final...'
+        );
+    
+        const result =
+          await api('declare', {
+            token: sessionToken,
+            moduleId: moduleId
+          });
+    
+    
+        /*
+         * =====================================================
+         * 3. TAMPILKAN PDF FINAL
+         * =====================================================
+         */
+    
+        const pdfUrl =
+          result.pdf_url || '';
+    
+        if (!pdfUrl) {
+          throw new Error(
+            'PDF final tidak tersedia.'
+          );
+        }
+    
+        app.innerHTML = `
+          <main class="container">
+            <section class="card">
+    
+              <div class="brand">
+                <h1>✓ Finalisasi Berhasil</h1>
+                <p>
+                  Surat pernyataan telah berhasil dibuat.
+                </p>
+              </div>
+    
+              <div class="module">
+    
+                <div style="
+                  width:100%;
+                  height:70vh;
+                  min-height:500px;
+                  border:1px solid #e2e8f0;
+                  border-radius:10px;
+                  overflow:hidden;
+                  background:#f8fafc;
+                ">
+                  <iframe
+                    src="${escapeHtml(pdfUrl)}"
+                    style="
+                      width:100%;
+                      height:100%;
+                      border:0;
+                    "
+                    title="Surat Pernyataan Final">
+                  </iframe>
+                </div>
+    
+              </div>
+    
+              <a
+                href="${escapeHtml(pdfUrl)}"
+                target="_blank"
+                rel="noopener"
+                style="
+                  display:block;
+                  text-align:center;
+                  text-decoration:none;
+                ">
+                <button type="button">
+                  Buka / Unduh Surat Pernyataan
+                </button>
+              </a>
+    
+              <button
+                class="logout"
+                type="button"
+                onclick="renderDashboard()">
+                Kembali ke Daftar Modul
+              </button>
+    
+            </section>
+          </main>
+        `;
     
       } catch (error) {
-        alert(error.message);
-        showDeclaration(moduleId);
+    
+        console.error(
+          'Gagal melakukan finalisasi:',
+          error
+        );
+    
+        alert(
+          error.message ||
+          'Finalisasi gagal. Silakan coba lagi.'
+        );
+    
+        await showDeclaration(moduleId);
       }
     }
-
+    
     function logout() {
       localStorage.removeItem('portalUser');
       localStorage.removeItem('portalToken');
