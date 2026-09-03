@@ -2514,8 +2514,7 @@
       inputId,
       moduleId
     ) {
-      const input =
-        document.getElementById(inputId);
+      const input = document.getElementById(inputId);
     
       if (
         !input ||
@@ -2552,9 +2551,7 @@
     
       if (jenisDokumen === 'Dokumen Lainnya') {
         const nameInput =
-          document.getElementById(
-            'otherDocumentName'
-          );
+          document.getElementById('otherDocumentName');
     
         namaDokumen =
           nameInput?.value.trim() || '';
@@ -2572,14 +2569,21 @@
         const fileData =
           await fileToBase64_(file);
     
-        showLoading('Mengunggah berkas...');
+        showLoading(
+          'Mengunggah berkas ke Google Drive...'
+        );
     
         /*
-         * =====================================================
-         * KIRIM LANGSUNG KE doPost()
-         * =====================================================
+         * ID unik untuk memantau proses upload.
          */
+        const uploadId =
+          'UP-' + Date.now() + '-' +
+          Math.random().toString(36).substring(2, 8);
     
+        /*
+         * Kirim menggunakan POST.
+         * Jangan menggunakan api() / JSONP untuk upload file.
+         */
         await fetch(
           PORTAL_CONFIG.API_URL,
           {
@@ -2593,6 +2597,8 @@
     
             body: JSON.stringify({
               action: 'uploadDocument',
+    
+              uploadId: uploadId,
     
               token: sessionToken,
     
@@ -2616,66 +2622,54 @@
           }
         );
     
-    
         /*
-         * =====================================================
-         * TUNGGU SEBENTAR AGAR APPS SCRIPT SELESAI
-         * =====================================================
+         * Karena no-cors tidak dapat membaca
+         * response POST, cek dokumen dari server.
          */
-    
         showLoading(
-          'Memproses berkas di Google Drive...'
+          'Memastikan berkas tersimpan...'
         );
     
-        await new Promise(
-          resolve =>
-            setTimeout(resolve, 3000)
-        );
-    
+        let uploaded = null;
     
         /*
-         * =====================================================
-         * CEK ULANG DATA DOKUMEN
-         * =====================================================
+         * Coba sampai 30 detik.
          */
+        for (let i = 0; i < 15; i++) {
     
-        const result =
-          await api(
-            'documents',
-            {
+          await new Promise(resolve =>
+            setTimeout(resolve, 2000)
+          );
+    
+          const result =
+            await api('documents', {
               token: sessionToken
-            }
-          );
+            });
     
-        const documents =
-          result.documents || [];
+          const documents =
+            result.documents || [];
     
+          uploaded =
+            documents.find(doc =>
+              String(
+                doc.jenis_dokumen || ''
+              ).trim() ===
+                String(jenisDokumen).trim() &&
+              String(
+                doc.nama_file || ''
+              ).trim() !== ''
+            );
     
-        /*
-         * Cari dokumen yang baru saja diupload.
-         */
-    
-        const uploaded =
-          documents.find(doc =>
-            String(doc.jenis_dokumen || '') ===
-              String(jenisDokumen) &&
-            String(doc.module_id || '') ===
-              String(moduleId)
-          );
-    
-        if (!uploaded) {
-    
-          throw new Error(
-            'Upload belum tercatat di server. Silakan coba lagi.'
-          );
+          if (uploaded) {
+            break;
+          }
         }
     
-    
-        /*
-         * =====================================================
-         * BERHASIL
-         * =====================================================
-         */
+        if (!uploaded) {
+          throw new Error(
+            'Berkas belum tercatat di server setelah 30 detik. Periksa Google Drive dan Sheet documents.'
+          );
+        }
     
         alert(
           `Berhasil mengunggah:\n${
