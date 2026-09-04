@@ -109,28 +109,43 @@
     }
 
     function setupTanggalLahir() {
-      const dateInput = document.getElementById('tanggalLahir');
-      const displayInput = document.getElementById('tanggalLahirDisplay');
+      const dateInput =
+        document.getElementById('tanggalLahir');
+    
+      const displayInput =
+        document.getElementById('tanggalLahirDisplay');
     
       if (!dateInput || !displayInput) return;
     
+      // Klik input tampilan → fokus ke input tanggal
       displayInput.addEventListener('click', function () {
-        if (typeof dateInput.showPicker === 'function') {
-          dateInput.showPicker();
-        } else {
-          dateInput.click();
+        dateInput.focus();
+    
+        // Hanya gunakan showPicker jika browser mendukungnya
+        if (
+          typeof dateInput.showPicker === 'function' &&
+          !/iPhone|iPad|iPod/i.test(navigator.userAgent)
+        ) {
+          try {
+            dateInput.showPicker();
+          } catch (e) {
+            // Biarkan browser menangani date picker
+          }
         }
       });
     
+      // Sinkronisasi tanggal ke input tampilan
       dateInput.addEventListener('change', function () {
         if (!this.value) {
           displayInput.value = '';
           return;
         }
     
-        const [year, month, day] = this.value.split('-');
+        const [year, month, day] =
+          this.value.split('-');
     
-        displayInput.value = `${day}/${month}/${year}`;
+        displayInput.value =
+          `${day}/${month}/${year}`;
       });
     }
     
