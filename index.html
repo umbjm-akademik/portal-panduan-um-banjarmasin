@@ -2899,34 +2899,26 @@
               <div class="module">
                 <div style="
                   width:100%;
-                  background:#f1f5f9;
-                  border:1px solid #e2e8f0;
+                  height:75vh;
+                  min-height:600px;
+                  max-height:850px;
+                  border:1px solid #dbe3e8;
                   border-radius:12px;
-                  padding:12px;
+                  overflow:hidden;
+                  background:#1f1f1f;
                   box-sizing:border-box;
                 ">
                 
-                  <div style="
-                    width:100%;
-                    height:65vh;
-                    min-height:520px;
-                    max-height:800px;
-                    background:#fff;
-                    border-radius:4px;
-                    overflow:hidden;
-                    box-shadow:0 2px 8px rgba(0,0,0,.08);
-                  ">
-                    <iframe
-                      src="${escapeHtml(previewUrl)}"
-                      style="
-                        width:100%;
-                        height:100%;
-                        border:0;
-                        display:block;
-                      "
-                      title="Preview Surat Pernyataan">
-                    </iframe>
-                  </div>
+                  <iframe
+                    src="${escapeHtml(previewUrl)}?rm=minimal"
+                    style="
+                      width:100%;
+                      height:100%;
+                      border:0;
+                      display:block;
+                    "
+                    title="Preview Surat Pernyataan">
+                  </iframe>
                 
                 </div>
     
